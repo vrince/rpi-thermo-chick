@@ -11,49 +11,170 @@
 <body>
   <div id="app">
     <v-app id="inspire">
-      <v-navigation-drawer v-model="drawer" app>
-        <!--  -->
+      <v-navigation-drawer v-model="drawer" width="350" app>
+        <v-card elevation="4" class="ma-2 pa-4">
+          <v-card-title>Thermometers</v-card-title>
+          <pre class="text-caption">{{ JSON.stringify(this.thermometers, null, 2) }}</pre>
+        </v-card>
+        <v-card elevation="4" class="ma-2 pa-4">
+          <v-card-title>Relays</v-card-title>
+          <pre class="text-caption">{{ JSON.stringify(this.relays, null, 2) }}</pre>
+        </v-card>
       </v-navigation-drawer>
 
-      <v-app-bar app elevation=10 rounded>
+      <v-app-bar app elevation=10>
         <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-
-        <v-toolbar-title>rpi-thermo-chick 🔥+🐤</v-toolbar-title>
+        <v-toolbar-title>rpi-thermo-chick 🐔</v-toolbar-title>
+        <v-toolbar-title v-if="this.relays[0].on">🔥</v-toolbar-title>
       </v-app-bar>
 
-      <v-main>
-        <v-sparkline :value="value1" :gradient="gradient" line-width="1" padding="20" smooth=10 :labels="labels"> </v-sparkline>
-        <v-sparkline class="stackSpark" :gradient="gradient" :value="value2" line-width="2" padding="20" smooth=10></v-sparkline>
+      <v-main class="align-center">
+        <v-container>
+          <v-card class="mx-auto" elevation="10" max-width="450" outlined :color="this.thermometers[1].color">
+            <v-list-item>
+              <v-list-item-content>
+                <div class="text-overline mb-4">
+                  Outside
+                </div>
+                <v-card class="mx-auto" elevation="10" max-width="300" outlined :color="this.thermometers[0].color">
+                  <v-list-item>
+                    <v-list-item-content>
+                      <div class="text-overline mb-4">
+                        Inside
+                      </div>
+                      <v-list-item-title class="text-h2 mb-1">
+                        {{this.thermometers[0].temp.toFixed(0)}}°c
+                      </v-list-item-title>
+                    </v-list-item-content>
+                    <v-list-item-avatar size="100" color="white">
+                      <pre class="text-h3 mb-2">🐔</pre>
+                    </v-list-item-avatar>
+                  </v-list-item>
+                  <v-card-actions class="justify-end ma-4">
+                    <pre v-if="this.relays[0].on" class="text-h2 pa-0">🔥</pre>
+                    <v-spacer></v-spacer>
+                    <v-btn elevation="5" fab x-large @click="this.toggle_relay">
+                      <v-icon v-if="this.relays[0].on">mdi-close</v-icon>
+                      <v-icon v-else>mdi-fire</v-icon>
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+                <v-list-item-title class="text-h4 ma-6">
+                  {{this.thermometers[1].temp.toFixed(0)}}°c
+                </v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+          </v-card>
+          <v-card class="mx-auto ma-10 pa-6" elevation="10" outlined>
+            <v-card-title>Chart</v-card-title>
+            <line-chart :chart-data="chartData" :height="200"></line-chart>
+        </v-card>
+        </v-container>
       </v-main>
     </v-app>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+  <script src="https://unpkg.com/vue-chartjs/dist/vue-chartjs.min.js"></script>
   <script>
+    Vue.component('line-chart', {
+      extends: VueChartJs.Line,
+      mixins: [VueChartJs.mixins.reactiveProp],
+      props: {
+        chartData: {
+          type: Object,
+          default: null
+        },
+        options: {
+          type: Object,
+          default: () => ({ responsive: true, maintainAspectRatio: false })
+        }
+      },
+      mounted() {
+        this.renderChart(this.chartData, this.options)
+      }
+    })
     new Vue({
       el: '#app',
-      vuetify: new Vuetify(),
+      vuetify: new Vuetify({
+        theme: { dark: false },
+      }),
       data: () => ({
         drawer: null,
-        value1: [0, 2, 5, 9, 5, 10, 3, 5, 0, 0, 1, 8, 2, 9, 0, 0, 2, 5, 9, 5, 10, 3, 5, 0, 0, 1, 8, 2, 9, 0],
-        value2: [7, 4, 7, 2, 9, 0, 1, 2, 4, 7, 7, 10, 1, 3, 5, 7, 4, 7, 2, 9, 0, 1, 2, 4, 7, 7, 10, 1, 3, 5],
-        labels: ['0', ' ', '2', '3', ' '],
-        gradient: ['#f72047', '#ffd200', '#1feaea']
+        gradient: ['#f72047', '#ffd200', '#1feaea'],
+        limits: [-5, 2, 7, 25],
+        colors: ['#64B5F6', '#FFECB3', '#FFCA28', '#FFCC80', '#E57373'],
+        thermometers: [{ temp: 0 }, { temp: 0 }],
+        relays: [{}, {}],
+        chartData: {
+          labels: [],
+          datasets: [
+            {
+              data: []
+            }
+          ]
+        }
+
       }),
+      methods: {
+        compute_color: function (temp) {
+          var index = 0
+          while (temp > this.limits[index])
+            index++
+          return this.colors[index]
+        },
+        toggle_relay: function () {
+          if (this.relays[0].on)
+            fetch("/relay/0/off")
+              .then(this.fetch_temperature())
+          else
+            fetch("/relay/0/on")
+              .then(this.fetch_temperature())
+        },
+        fetch_temperature: function () {
+          fetch("/")
+            .then(response => response.json())
+            .then(data => {
+              this.thermometers = data.thermometers
+              this.relays = data.relays
+              this.thermometers[0].color = this.compute_color(this.thermometers[0].temp)
+              this.thermometers[1].color = this.compute_color(this.thermometers[1].temp)
+            })
+        },
+        fetch_chart: function () {
+          fetch("/chart")
+            .then(response => response.json())
+            .then(data => {
+              this.chartData = {
+                labels: data.labels,
+                datasets: [
+                  {
+                    label: 'inside',
+                    backgroundColor: this.thermometers[0].color,
+                    data: data.datasets[0]
+                  },
+                  {
+                    label: 'outside',
+                    backgroundColor: this.thermometers[1].color,
+                    data: data.datasets[1]
+                  }
+                ]
+              }
+            })
+        }
+
+      },
+      mounted() {
+        this.fetch_temperature()
+        this.fetch_chart()
+        setInterval(() => { this.fetch_temperature() }, 10000)
+        setInterval(() => { this.fetch_chart() }, 30000)
+      }
     })
   </script>
-
   <style lang="css" scoped>
-    .stackSheet {
-      position: relative;
-    }
-
-    .stackSpark {
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
   </style>
 </body>
 
