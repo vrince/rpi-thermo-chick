@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 import datetime
+import json
 from typing import Optional
 from threading import Thread
 from time import sleep
@@ -39,22 +40,35 @@ def rotate(arr,d):
 
 # temperature update
 def update_temperature():
-    global thermometers, histories, stopped, ts, interval, intervalPerDay, index
-    ts = now()
-    index = get_history_index(datetime.datetime.now(),interval, intervalPerDay)
+    global thermometers, histories, ts, index
+    last_push = datetime.datetime.now()
     while not stopped:
+        ts = now()
+        index = get_history_index(datetime.datetime.now(),interval, intervalPerDay)
         for i, t in enumerate(thermometers):
             temp = read_temperature(t['device'])
             if temp is not None:
                 thermometers[i]['temp'] = temp
                 thermometers[i]['ts'] = now()
                 histories[i][index] = temp
+                if (datetime.datetime.now() - last_push).total_seconds() > 120:
+                    last_push = datetime.datetime.now()
+                    push_history(histories)
         sleep(30)
 
+def pull_history():
+    with open('histories.json', 'r') as f:
+        return json.load(f)
+
+def push_history(h):
+    with open('histories.json', 'w') as f:
+        json.dump(h, f)
+
+# state
 ts = now()
 init = False
 stopped = False
-interval = 15*60 #15 min in sec
+interval = 15*60 #15 min in sec 
 intervalPerDay = 24*4 #number of interval (15min) per day
 relays = [
     {'pin':4, 'on':0, 'ts': now()},
@@ -62,12 +76,14 @@ relays = [
 thermometers = [
     {'temp':0, 'loc':'in', 'device': '28-3c01d075db96', 'ts': now()},
     {'temp':0, 'loc':'out', 'device': '28-3c01d0751fcd', 'ts': now()}]
-histories = [
-    [None] * intervalPerDay,
-    [None] * intervalPerDay
-]
 
-print(histories)
+# read back historical data
+histories = []
+try:
+    histories = pull_history()
+except:
+    histories = [[None] * intervalPerDay, [None] * intervalPerDay]
+    push_history(histories)
 
 # setup GPIO
 if not init:
@@ -85,12 +101,14 @@ thread.start()
 # server
 @app.get('/')
 def read_root():
-    return {'thermo-chick': '🐤+🔥', 
-    'relays': relays, 
-    'thermometers': thermometers,
-    'ts': ts,
-    'index': index, 
-    'histories': histories}
+    return {
+        'thermo-chick': '🐤+🔥', 
+        'relays': relays, 
+        'thermometers': thermometers,
+        'ts': ts,
+        'index': index, 
+        'histories': histories
+        }
 
 @app.get('/app', response_class=HTMLResponse)
 def read_vue_app():
@@ -117,8 +135,10 @@ def read_item(relay_id: int, action: str = 'on'):
 
 @app.get('/chart')
 def read_history():
-    return {'thermo-chick': '🐤+🔥', 
-    'ts': ts,
-    'index': index,
-    'labels': [ f'{int(i/4)}h' if i % 4 == 0 else '' for i in range(intervalPerDay,0,-1)],
-    'datasets': [rotate(histories[0], index+1), rotate(histories[1], index+1)]}
+    return {
+        'thermo-chick': '🐤+🔥', 
+        'ts': ts,
+        'index': index,
+        'labels': [ f'{int(i/4)}h' if i % 4 == 0 else '' for i in range(intervalPerDay,0,-1)],
+        'datasets': [rotate(histories[0], index+1), rotate(histories[1], index+1)]
+        }

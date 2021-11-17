@@ -29,18 +29,18 @@
       </v-app-bar>
 
       <v-main class="align-center">
-        <v-container>
+        <v-container class="mt-6">
           <v-card class="mx-auto" elevation="10" max-width="450" outlined :color="this.thermometers[1].color">
             <v-list-item>
               <v-list-item-content>
                 <div class="text-overline mb-4">
-                  Outside
+                  {{$t("outside")}}
                 </div>
                 <v-card class="mx-auto" elevation="10" max-width="300" outlined :color="this.thermometers[0].color">
                   <v-list-item>
                     <v-list-item-content>
                       <div class="text-overline mb-4">
-                        Inside
+                        {{$t("inside")}}
                       </div>
                       <v-list-item-title class="text-h2 mb-1">
                         {{this.thermometers[0].temp.toFixed(0)}}°c
@@ -66,9 +66,9 @@
             </v-list-item>
           </v-card>
           <v-card class="mx-auto ma-10 pa-6" elevation="10" outlined>
-            <v-card-title>Chart</v-card-title>
+            <v-card-title>{{$t("chart")}}</v-card-title>
             <line-chart :chart-data="chartData" :height="200"></line-chart>
-        </v-card>
+          </v-card>
         </v-container>
       </v-main>
     </v-app>
@@ -78,7 +78,21 @@
   <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
   <script src="https://unpkg.com/vue-chartjs/dist/vue-chartjs.min.js"></script>
+  <script src="https://unpkg.com/vue-i18n@8"></script>
   <script>
+    const messages = {
+      en: {
+        inside: "Inside",
+        outside: "Outside",
+        chart: "Chart"
+      },
+      fr: {
+        inside: "Interieur",
+        outside: "Exterieur",
+        chart: "Graphique"
+      },
+    };
+    const i18n = new VueI18n({ messages: messages });
     Vue.component('line-chart', {
       extends: VueChartJs.Line,
       mixins: [VueChartJs.mixins.reactiveProp],
@@ -101,9 +115,10 @@
       vuetify: new Vuetify({
         theme: { dark: false },
       }),
+      i18n: i18n,
       data: () => ({
         drawer: null,
-        gradient: ['#f72047', '#ffd200', '#1feaea'],
+        locale: localStorage.getItem("locale") || "fr",
         limits: [-5, 2, 7, 25],
         colors: ['#64B5F6', '#FFECB3', '#FFCA28', '#FFCC80', '#E57373'],
         thermometers: [{ temp: 0 }, { temp: 0 }],
@@ -151,20 +166,26 @@
                 labels: data.labels,
                 datasets: [
                   {
-                    label: 'inside',
+                    label: this.$t("inside"),
                     backgroundColor: this.thermometers[0].color,
                     data: data.datasets[0]
                   },
                   {
-                    label: 'outside',
+                    label: this.$t("outside"),
                     backgroundColor: this.thermometers[1].color,
                     data: data.datasets[1]
                   }
                 ]
               }
             })
+        },
+        change_locale: function () {
+          this.$i18n.locale = this.locale;
+          localStorage.setItem("locale", this.locale);
         }
-
+      },
+      created() {
+        this.$i18n.locale = this.locale;
       },
       mounted() {
         this.fetch_temperature()
