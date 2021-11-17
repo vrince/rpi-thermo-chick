@@ -14,7 +14,7 @@ Add following lines to your `/boot/config.txt`:
 
 ```ini
 [all]
-dtoverlay=w1-gpio,gpiopin=27 
+dtoverlay=w1-gpio,gpiopin=3 
 # default pin is 4 but it enter in conflict with relay hat
 ```
 
@@ -24,7 +24,9 @@ sudo reboot
 lsmod | grep -i w1_
 ```
 
+
+
 ## References
 
-[1-wire](https://pinout.xyz/pinout/1_wire#)
-[Adafruits lesson 11](https://learn.adafruit.com/adafruits-raspberry-pi-lesson-11-ds18b20-temperature-sensing)
+* [1-wire](https://pinout.xyz/pinout/1_wire#)
+* [Adafruits lesson 11](https://learn.adafruit.com/adafruits-raspberry-pi-lesson-11-ds18b20-temperature-sensing)

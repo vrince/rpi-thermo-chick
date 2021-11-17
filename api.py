@@ -16,7 +16,7 @@ app = FastAPI()
 app.mount("/images", StaticFiles(directory="images"), name="images")
 vue_app = open("index.html", "r").read()
 
-def now():
+def now_ts():
     return datetime.datetime.now().isoformat()
 
 def read_temperature(device: str) -> float:
@@ -35,25 +35,40 @@ def get_history_index(date, interval, intervalPerDay):
     return max(0,min(int(seconds_since_midnight / interval), intervalPerDay))
 
 def rotate(arr,d):
-  result = arr[d:len(arr)]+arr[0:d]
-  return result
+    result = arr[d:len(arr)]+arr[0:d]
+    return result
+
+def set_relay(relay_id, state):
+    relays[relay_id]['on'] = state
+    relays[relay_id]['ts'] = now_ts()
+    GPIO.output(relays[relay_id]['pin'], state)
+
+def apply_thermostat():
+    inside_temp = thermometers[0]['temp']
+    if inside_temp < target_temperature:
+        set_relay(0, GPIO.HIGH)
+    elif inside_temp >= target_temperature + 1:
+        set_relay(0, GPIO.LOW)
 
 # temperature update
 def update_temperature():
     global thermometers, histories, ts, index
-    last_push = datetime.datetime.now()
+    now = datetime.datetime.now()
+    last_push = now
     while not stopped:
-        ts = now()
-        index = get_history_index(datetime.datetime.now(),interval, intervalPerDay)
+        ts = now_ts()
+        now = datetime.datetime.now()
+        index = get_history_index(now,interval, intervalPerDay)
         for i, t in enumerate(thermometers):
             temp = read_temperature(t['device'])
             if temp is not None:
                 thermometers[i]['temp'] = temp
-                thermometers[i]['ts'] = now()
+                thermometers[i]['ts'] = now_ts()
                 histories[i][index] = temp
-                if (datetime.datetime.now() - last_push).total_seconds() > 120:
-                    last_push = datetime.datetime.now()
+                if (now - last_push).total_seconds() > 120:
+                    last_push = now
                     push_history(histories)
+        apply_thermostat()
         sleep(30)
 
 def pull_history():
@@ -65,17 +80,18 @@ def push_history(h):
         json.dump(h, f)
 
 # state
-ts = now()
+ts = now_ts()
 init = False
 stopped = False
-interval = 15*60 #15 min in sec 
+interval = 15*60 # 15 min in sec 
 intervalPerDay = 24*4 #number of interval (15min) per day
+target_temperature = 5
 relays = [
-    {'pin':4, 'on':0, 'ts': now()},
-    {'pin':17,'on':0, 'ts': now()}]
+    {'pin':4, 'on':0, 'ts': now_ts()},
+    {'pin':17,'on':0, 'ts': now_ts()}]
 thermometers = [
-    {'temp':0, 'loc':'in', 'device': '28-3c01d075db96', 'ts': now()},
-    {'temp':0, 'loc':'out', 'device': '28-3c01d0751fcd', 'ts': now()}]
+    {'temp':0, 'loc':'in', 'device': '28-3c01d075db96', 'ts': now_ts()},
+    {'temp':0, 'loc':'out', 'device': '28-3c01d0751fcd', 'ts': now_ts()}]
 
 # read back historical data
 histories = []
@@ -102,12 +118,13 @@ thread.start()
 @app.get('/')
 def read_root():
     return {
-        'thermo-chick': '🐤+🔥', 
+        'thermo-chick': '🐤+🔥',
+        'ok': True,
         'relays': relays, 
         'thermometers': thermometers,
         'ts': ts,
         'index': index, 
-        'histories': histories
+        'target_temperature': target_temperature
         }
 
 @app.get('/app', response_class=HTMLResponse)
@@ -127,18 +144,24 @@ def read_item(relay_id: int, action: str = 'on'):
     if action not in ["on","off"]:
         return  {"ok": False, "msg": "action must be 'on' or 'off'"}
 
-    relays[relay_id]['on'] = GPIO.HIGH if action == 'on' else GPIO.LOW
-    relays[relay_id]['ts'] = now()
-    GPIO.output(relays[relay_id]['pin'], relays[relay_id]['on'])
-
+    set_relay(relay_id, GPIO.HIGH if action == 'on' else GPIO.LOW)
     return {"ok": True, 'relays': relays}
 
 @app.get('/chart')
 def read_history():
     return {
-        'thermo-chick': '🐤+🔥', 
+        'thermo-chick': '🐤+🔥',
+        'ok': True,
         'ts': ts,
         'index': index,
         'labels': [ f'{int(i/4)}h' if i % 4 == 0 else '' for i in range(intervalPerDay,0,-1)],
         'datasets': [rotate(histories[0], index+1), rotate(histories[1], index+1)]
         }
+
+@app.get('/target/{temperature}')
+def set_target_temperature(temperature: int):
+    global target_temperature
+    target_temperature = max(2,min(temperature,30))
+    apply_thermostat()
+    return {'ok': True, 'relays': relays}
+    

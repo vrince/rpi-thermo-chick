@@ -46,17 +46,18 @@
                         {{this.thermometers[0].temp.toFixed(0)}}°c
                       </v-list-item-title>
                     </v-list-item-content>
-                    <v-list-item-avatar size="100" color="white">
-                      <pre class="text-h3 mb-2">🐔</pre>
-                    </v-list-item-avatar>
+                    <v-badge :value="this.relays[0].on" overlap offset-x="50" offset-y="50" color="white">
+                      <v-list-item-avatar size="100" color="white">
+                        <pre class="text-h3 mb-2">🐔</pre>
+                      </v-list-item-avatar>
+                      <template v-slot:badge>
+                        <pre class="text-h3 pa-0">🔥</pre>
+                      </template>
+                    </v-badge>
                   </v-list-item>
                   <v-card-actions class="justify-end ma-4">
-                    <pre v-if="this.relays[0].on" class="text-h2 pa-0">🔥</pre>
-                    <v-spacer></v-spacer>
-                    <v-btn elevation="5" fab x-large @click="this.toggle_relay">
-                      <v-icon v-if="this.relays[0].on">mdi-close</v-icon>
-                      <v-icon v-else>mdi-fire</v-icon>
-                    </v-btn>
+                    <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=30
+                      step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
                   </v-card-actions>
                 </v-card>
                 <v-list-item-title class="text-h4 ma-6">
@@ -121,6 +122,7 @@
         locale: localStorage.getItem("locale") || "fr",
         limits: [-5, 2, 7, 25],
         colors: ['#64B5F6', '#FFECB3', '#FFCA28', '#FFCC80', '#E57373'],
+        target: 5,
         thermometers: [{ temp: 0 }, { temp: 0 }],
         relays: [{}, {}],
         chartData: {
@@ -133,6 +135,11 @@
         }
 
       }),
+      computed: {
+        targetLabel: function () {
+          return `${this.target}°c`
+        }
+      },
       methods: {
         compute_color: function (temp) {
           var index = 0
@@ -156,6 +163,7 @@
               this.relays = data.relays
               this.thermometers[0].color = this.compute_color(this.thermometers[0].temp)
               this.thermometers[1].color = this.compute_color(this.thermometers[1].temp)
+              this.target = data.target_temperature
             })
         },
         fetch_chart: function () {
@@ -184,6 +192,11 @@
           localStorage.setItem("locale", this.locale);
         }
       },
+      watch: {
+        target: function (val) {
+          fetch(`/target/${val}`)
+        }
+      },
       created() {
         this.$i18n.locale = this.locale;
       },
@@ -195,7 +208,14 @@
       }
     })
   </script>
-  <style lang="css" scoped>
+  <style lang="scss" scoped>
+    .v-badge__badge {
+      padding: auto;
+      height: auto;
+      padding: 6px 6px;
+      border-radius: 40px;
+      background-color: transparent
+    }
   </style>
 </body>
 
