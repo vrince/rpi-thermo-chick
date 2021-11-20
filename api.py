@@ -90,8 +90,8 @@ relays = [
     {'pin':4, 'on':0, 'ts': now_ts()},
     {'pin':17,'on':0, 'ts': now_ts()}]
 thermometers = [
-    {'temp':0, 'loc':'in', 'device': '28-3c01d075db96', 'ts': now_ts()},
-    {'temp':0, 'loc':'out', 'device': '28-3c01d0751fcd', 'ts': now_ts()}]
+    {'temp':0, 'loc':'in', 'device': '28-3c01d0751fcd', 'ts': now_ts()},
+    {'temp':0, 'loc':'out', 'device': '28-3c01d075db96', 'ts': now_ts()}]
 
 # read back historical data
 histories = []
