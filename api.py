@@ -50,6 +50,12 @@ def apply_thermostat():
     elif inside_temp >= target_temperature + 1:
         set_relay(0, GPIO.LOW)
 
+def update_min_max_temperature():
+    global thermometers
+    for i, _ in enumerate(thermometers):
+        thermometers[i]['min'] = min([e for e in histories[i] if e is not None])
+        thermometers[i]['max'] = max([e for e in histories[i] if e is not None])
+
 # temperature update
 def update_temperature():
     global thermometers, histories, ts, index
@@ -65,9 +71,10 @@ def update_temperature():
                 thermometers[i]['temp'] = temp
                 thermometers[i]['ts'] = now_ts()
                 histories[i][index] = temp
-                if (now - last_push).total_seconds() > 120:
-                    last_push = now
-                    push_history(histories)
+        if (now - last_push).total_seconds() > 120:
+            last_push = now
+            update_min_max_temperature()
+            push_history(histories)
         apply_thermostat()
         sleep(30)
 
@@ -90,13 +97,14 @@ relays = [
     {'pin':4, 'on':0, 'ts': now_ts()},
     {'pin':17,'on':0, 'ts': now_ts()}]
 thermometers = [
-    {'temp':0, 'loc':'in', 'device': '28-3c01d0751fcd', 'ts': now_ts()},
-    {'temp':0, 'loc':'out', 'device': '28-3c01d075db96', 'ts': now_ts()}]
+    {'temp':0, 'loc':'in', 'device': '28-3c01d0751fcd', 'ts': now_ts(), 'min': 0, 'max': 0},
+    {'temp':0, 'loc':'out', 'device': '28-3c01d075db96', 'ts': now_ts(), 'min': 0, 'max': 0}]
 
 # read back historical data
 histories = []
 try:
     histories = pull_history()
+    update_min_max_temperature()
 except:
     histories = [[None] * intervalPerDay, [None] * intervalPerDay]
     push_history(histories)

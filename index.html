@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐔</text></svg>">
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
@@ -54,7 +55,7 @@
                         {{$t("inside")}}
                       </div>
                       <v-list-item-title class="text-h2 mb-1">
-                        {{this.thermometers[0].temp.toFixed(0)}}°c
+                        {{thermometers[0].temp.toFixed(0)}}°c
                       </v-list-item-title>
                     </v-list-item-content>
                     <v-badge :value="relays[0].on" overlap offset-x="50" offset-y="50" color="white">
@@ -70,16 +71,20 @@
                     <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=12
                       step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
                   </v-card-actions>
+                  <v-card-actions class="justify-end">
+                    <v-chip small label outlined color="black" class="text-caption float-right">{{thermometers[0].min.toFixed(0)}} - {{thermometers[0].max.toFixed(0)}}°c</v-chip>
+                  </v-card-actions>
                 </v-card>
-                <v-list-item-title class="text-h4 ma-6">
-                  {{this.thermometers[1].temp.toFixed(0)}}°c
+                <v-list-item-title class="mt-4">
+                  <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
+                  <v-chip small label outlined color="black" class="text-caption float-right">{{thermometers[1].min.toFixed(0)}} - {{thermometers[1].max.toFixed(0)}}°c</v-chip>
                 </v-list-item-title>
               </v-list-item-content>
             </v-list-item>
           </v-card>
           <v-card class="mx-auto ma-10 pa-6" elevation="10" outlined>
             <v-card-title>{{$t("chart")}}</v-card-title>
-            <line-chart :chart-data="chartData" :chart-options="chartOptions" :height="200"></line-chart>
+            <line-chart :chart-data="chartData" :options="chartOptions" :height="200"></line-chart>
           </v-card>
         </v-container>
       </v-main>
@@ -112,16 +117,14 @@
     Vue.component('line-chart', {
       extends: VueChartJs.Line,
       mixins: [VueChartJs.mixins.reactiveProp],
-      props: {
-        chartData: {
-          type: Object
-        },
-        chartOptions: {
-          type: Object
+      props: ["options"],
+      watch: {
+        options() {
+          this.renderChart(this.chartData, this.options);
         }
       },
       mounted() {
-        this.renderChart(this.chartData, this.chartOptions)
+        this.renderChart(this.chartData, this.options)
       }
     })
     new Vue({
@@ -136,26 +139,10 @@
         locales: ["fr", "en"],
         colors: gradient.getArray(),
         target: 5,
-        thermometers: [{ temp: 0 }, { temp: 0 }],
+        thermometers: [{ temp: 0, min: 0, max: 0}, { temp: 0, min: 0, max: 0 }],
         relays: [{}, {}],
-        chartOptions: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              min: -5,
-              max: 25,
-            }
-          }
-        },
-        chartData: {
-          labels: [],
-          datasets: [
-            {
-              data: []
-            }
-          ]
-        }
+        chartData: { labels: [], datasets: [{ data: [] }] },
+        chartOptions: {}
       }),
       computed: {
         targetLabel: function () {
@@ -237,7 +224,7 @@
       padding: auto;
       height: auto;
       padding: 6px 6px;
-      border-radius: 40px;
+      border-radius: 50px;
       background-color: transparent
     }
   </style>
