@@ -5,16 +5,25 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+import uvicorn
+import click
+
 import datetime
 import json
 from typing import Optional
 from threading import Thread
 from time import sleep
 from random import randrange
+from os import environ, path
+from appdirs import user_config_dir
+
+host = environ.get('RPI_THERMO_CHICK_HOST', '0.0.0.0')
+port = environ.get('RPI_THERMO_CHICK_PORT', '8000')
+config_dir = user_config_dir('rpi-thermo-chick')
+module_dir = path.dirname(__file__)
 
 app = FastAPI()
-app.mount("/images", StaticFiles(directory="images"), name="images")
-vue_app = open("index.html", "r").read()
+vue_app = open( module_dir + '/index.html', 'r').read()
 
 def now_ts():
     return datetime.datetime.now().isoformat()
@@ -79,11 +88,11 @@ def update_temperature():
         sleep(30)
 
 def pull_history():
-    with open('histories.json', 'r') as f:
+    with open(config_dir + '/histories.json', 'r') as f:
         return json.load(f)
 
 def push_history(h):
-    with open('histories.json', 'w') as f:
+    with open(config_dir + '/histories.json', 'w') as f:
         json.dump(h, f)
 
 # state
@@ -93,12 +102,20 @@ stopped = False
 interval = 15*60 # 15 min in sec 
 intervalPerDay = 24*4 #number of interval (15min) per day
 target_temperature = 5
-relays = [
-    {'pin':4, 'on':0, 'ts': now_ts()},
-    {'pin':17,'on':0, 'ts': now_ts()}]
-thermometers = [
-    {'temp':0, 'loc':'in', 'device': '28-3c01d0751fcd', 'ts': now_ts(), 'min': 0, 'max': 0},
-    {'temp':0, 'loc':'out', 'device': '28-3c01d075db96', 'ts': now_ts(), 'min': 0, 'max': 0}]
+
+config = {}
+with open(config_dir + '/config.json', 'r') as f:
+    config = json.load(f)
+
+# read mendatory relay / thermometers info
+relays = config['relays']
+thermometers = config['thermometers']
+
+# init the rest
+for r in relays:
+    r.update({'on':0, 'ts': now_ts()})
+for t in thermometers:
+    t.update({'temp':0, 'ts': now_ts(), 'min': 0, 'max': 0})
 
 # read back historical data
 histories = []
@@ -126,7 +143,7 @@ thread.start()
 @app.get('/')
 def read_root():
     return {
-        'thermo-chick': '🐤+🔥',
+        'rpi-thermo-chick': '🐔🔥',
         'ok': True,
         'relays': relays, 
         'thermometers': thermometers,
@@ -137,28 +154,27 @@ def read_root():
 
 @app.get('/app', response_class=HTMLResponse)
 def read_vue_app():
-    return open("index.html", "r").read()
-
-@app.get('/bastien', response_class=HTMLResponse)
-def read_vue_app():
-    return open("bastien-index.html", "r").read()
+    #return open(module_dir + '/index.html', 'r').read()
+    return vue_app
 
 @app.get('/relay/{relay_id}/{action}')
 def read_item(relay_id: int, action: str = 'on'):
 
-    if relay_id not in [0,1]:
-        return  {"ok": False, "msg": "relay_id must be 0 or 1"}
+    valid_ids = range(0, len(relays)-1)
 
-    if action not in ["on","off"]:
-        return  {"ok": False, "msg": "action must be 'on' or 'off'"}
+    if relay_id not in valid_ids:
+        return  {'ok': False, 'msg': f'relay_id must be in {valid_ids}'}
+
+    if action not in ['on','off']:
+        return  {'ok': False, 'msg': 'action must be \'on\' or \'off\''}
 
     set_relay(relay_id, GPIO.HIGH if action == 'on' else GPIO.LOW)
-    return {"ok": True, 'relays': relays}
+    return {'ok': True, 'relays': relays}
 
 @app.get('/chart')
 def read_history():
     return {
-        'thermo-chick': '🐤+🔥',
+        'rpi-thermo-chick': '🐔🔥',
         'ok': True,
         'ts': ts,
         'index': index,
@@ -173,3 +189,14 @@ def set_target_temperature(temperature: int):
     apply_thermostat()
     return {'ok': True, 'relays': relays}
     
+@click.command()
+@click.option('--host', default='0.0.0.0', help='Host (default 0.0.0.0) [env RPI_THERMO_CHICK_HOST]')
+@click.option('--port', default=8000,   help='Port (default 8000) [env RPI_THERMO_CHICK_PORT]')
+def cli(host, port):
+    """
+    rpi-thermo-chick: 🐔🔥
+    """
+    uvicorn.run(app, host=host, port=port)
+
+if __name__ == "__main__":
+    cli(auto_envvar_prefix='RPI_THERMO_CHICK')

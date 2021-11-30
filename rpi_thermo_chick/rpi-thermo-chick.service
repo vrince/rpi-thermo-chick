@@ -1,0 +1,9 @@
+[Unit]
+Description=rpi-thermo-chick-service
+After=network.target
+
+[Service]
+ExecStart=rpi-thermo-chick
+
+[Install]
+WantedBy=multi-user.target
