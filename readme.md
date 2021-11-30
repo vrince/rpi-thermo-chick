@@ -1,8 +1,10 @@
 # rpi-thermo-chick 🐔🔥
 
-Rapsbery-pi Thermostat for chicken. 
+Rapsbery-pi Thermostat for chicken.
 
 Backend python 3 - fastapi / frontend vuejs - vuetify
+
+[![PyPI version](https://badge.fury.io/py/rpi-thermo-chick.svg)](https://badge.fury.io/py/rpi-thermo-chick)
 
 ## Hardware
 
