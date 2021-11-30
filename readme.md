@@ -79,6 +79,8 @@ pi-thermo-chick.service configure
 
 It will create a config file in you current user configuration directory, edit that file (with `nano` or any other file editor).
 
+For example if you user is `pi`, config file will be be `/home/pi/.config/rpi-thermo-chick/config.json`.
+
 Configuration file content is a simple json and look like:
 
 ```json
