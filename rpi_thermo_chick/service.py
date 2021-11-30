@@ -5,7 +5,7 @@ from shutil import copyfile
 import json
 
 config_dir = user_config_dir('rpi-thermo-chick')
-install_dir = '/etc/systemd/system'
+install_dir = '/lib/systemd/system'
 module_dir = path.dirname(__file__)
 
 default_config = {
