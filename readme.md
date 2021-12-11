@@ -6,7 +6,7 @@ Rapsbery-pi Thermostat for chicken.
 
 Backend python 3 - fastapi / frontend vuejs - vuetify
 
-[![PyPI version](https://badge.fury.io/py/rpi-thermo-chick.svg)](https://badge.fury.io/py/rpi-thermo-chick) ![](https://badgen.net/badge/license/MIT/blue) [![](https://badgen.net/badge/code/github/black?icon=github)](https://badgen.net/badge/:subject/:status/:color?icon=github)
+[![PyPI version](https://badge.fury.io/py/rpi-thermo-chick.svg)](https://badge.fury.io/py/rpi-thermo-chick) ![](https://badgen.net/badge/license/MIT/blue) [![](https://badgen.net/badge/code/github/black?icon=github)](https://github.com/vrince/rpi-thermo-chick)
 
 
 ## Hardware
