@@ -2,9 +2,12 @@
 
 Rapsbery-pi Thermostat for chicken.
 
+![](media/rpi-thermo-chick.png)
+
 Backend python 3 - fastapi / frontend vuejs - vuetify
 
-[![PyPI version](https://badge.fury.io/py/rpi-thermo-chick.svg)](https://badge.fury.io/py/rpi-thermo-chick)
+[![PyPI version](https://badge.fury.io/py/rpi-thermo-chick.svg)](https://badge.fury.io/py/rpi-thermo-chick) ![](https://badgen.net/badge/license/MIT/blue) [![](https://badgen.net/badge/code/github/black?icon=github)](https://badgen.net/badge/:subject/:status/:color?icon=github)
+
 
 ## Hardware
 
@@ -26,7 +29,7 @@ dtoverlay=w1-gpio,gpiopin=3
 
 ## Install
 
-This project is mean to run as a  service (see next section), but to give it a try you can instal it as a normal user (lets assume as `pi` default user).
+This project is meant to run as a  service (see next section), but to give it a try you can instal it as a normal user (lets assume as `pi` default user).
 
 ```bash
 # install from pip repository
@@ -132,6 +135,10 @@ python rpi_thermo_chick/api.py --port 8000
 * Open `http://<pi-ip>:8000` to see current state json payload
 
 Note: replace `<pi-ip>` by you actual raspberry pi address, like `192.168.2.205`
+
+### API
+
+As the API use `fast-api` the documentation of the API can be access at `http://<pi-ip>:8000/docs`
 
 ## References
 
