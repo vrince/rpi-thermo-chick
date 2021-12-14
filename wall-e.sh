@@ -5,11 +5,11 @@ cmd=${1}
 case $cmd in
 run)
     echo "🐔 Running"
-    python rpi_thermo_chick/api.py --port 8000
+    python3 rpi_thermo_chick/api.py --port 8000
     ;;
 wheel)
     echo "🐍 Building wheel ..."
-    python setup.py bdist_wheel
+    python3 setup.py bdist_wheel
     ;;
 clean)
     echo "🧨 Cleaning wheel ..."
@@ -20,7 +20,7 @@ clean)
     ;;  
 deploy)
     echo "🚀 Deploying wheel ..."
-    python -m twine upload dist/*
+    python3 -m twine upload dist/*
     ;;
 *)
   echo "Nothing to do ..."

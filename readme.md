@@ -2,7 +2,7 @@
 
 Rapsbery-pi Thermostat for chicken.
 
-![](media/rpi-thermo-chick.png)
+![](https://github.com/vrince/rpi-thermo-chick/raw/master/media/rpi-thermo-chick.png)
 
 Backend python 3 - fastapi / frontend vuejs - vuetify
 
