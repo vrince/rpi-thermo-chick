@@ -1,6 +1,6 @@
 # rpi-thermo-chick 🐔🔥
 
-Rapsbery-pi Thermostat for chicken.
+Rapsberry-pi Thermostat for chicken.
 
 ![](https://github.com/vrince/rpi-thermo-chick/raw/master/media/rpi-thermo-chick.png)
 
