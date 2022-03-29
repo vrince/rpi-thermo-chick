@@ -2,7 +2,8 @@
 <html>
 
 <head>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐔</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐔</text></svg>">
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
@@ -71,20 +72,22 @@
                     <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=12
                       step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
                   </v-card-actions>
+                  <v-sparkline v-model="chart_data[0]" color="white" height="50" padding="10"
+                    stroke-linecap="round" smooth line-width="2" auto-draw></v-sparkline>
                   <v-card-actions class="justify-end">
-                    <v-chip small label outlined color="black" class="text-caption float-right">{{thermometers[0].min.toFixed(0)}} - {{thermometers[0].max.toFixed(0)}}°c</v-chip>
+                    <span small label outlined color="black" class="text-caption float-right">
+                      {{thermometers[0].min.toFixed(0)}} | {{thermometers[0].max.toFixed(0)}}°c</span>
                   </v-card-actions>
                 </v-card>
+                <v-sparkline v-model="chart_data[1]" color="white" height="50" padding="10" stroke-linecap="round" smooth
+                  line-width="2" auto-draw></v-sparkline>
                 <v-list-item-title class="mt-4">
                   <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
-                  <v-chip small label outlined color="black" class="text-caption float-right">{{thermometers[1].min.toFixed(0)}} - {{thermometers[1].max.toFixed(0)}}°c</v-chip>
+                  <span small label outlined color="black" class="text-caption float-right">
+                    {{thermometers[1].min.toFixed(0)}} | {{thermometers[1].max.toFixed(0)}}°c</span>
                 </v-list-item-title>
               </v-list-item-content>
             </v-list-item>
-          </v-card>
-          <v-card class="mx-auto ma-10 pa-6" elevation="10" outlined>
-            <v-card-title>{{$t("chart")}}</v-card-title>
-            <line-chart :chart-data="chartData" :options="chartOptions" :height="200"></line-chart>
           </v-card>
         </v-container>
       </v-main>
@@ -92,8 +95,6 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
-  <script src="https://unpkg.com/vue-chartjs/dist/vue-chartjs.min.js"></script>
   <script>var module = {};</script>
   <script src="https://cdn.jsdelivr.net/npm/javascript-color-gradient@1.3.2/src/index.min.js"></script>
   <script src="https://unpkg.com/vue-i18n@8"></script>
@@ -104,29 +105,14 @@
     const messages = {
       en: {
         inside: "Inside",
-        outside: "Outside",
-        chart: "Chart"
+        outside: "Outside"
       },
       fr: {
         inside: "Interieur",
-        outside: "Exterieur",
-        chart: "Graphique"
+        outside: "Exterieur"
       },
     };
     const i18n = new VueI18n({ messages: messages });
-    Vue.component('line-chart', {
-      extends: VueChartJs.Line,
-      mixins: [VueChartJs.mixins.reactiveProp],
-      props: ["options"],
-      watch: {
-        options() {
-          this.renderChart(this.chartData, this.options);
-        }
-      },
-      mounted() {
-        this.renderChart(this.chartData, this.options)
-      }
-    })
     new Vue({
       el: '#app',
       vuetify: new Vuetify({
@@ -139,10 +125,9 @@
         locales: ["fr", "en"],
         colors: gradient.getArray(),
         target: 5,
-        thermometers: [{ temp: 0, min: 0, max: 0}, { temp: 0, min: 0, max: 0 }],
+        thermometers: [{ temp: 0, min: 0, max: 0, color: "primary" }, { temp: 0, min: 0, max: 0, color: "primary" }],
         relays: [{}, {}],
-        chartData: { labels: [], datasets: [{ data: [] }] },
-        chartOptions: {}
+        chart_data: []
       }),
       computed: {
         targetLabel: function () {
@@ -178,23 +163,9 @@
           fetch("/chart")
             .then(response => response.json())
             .then(data => {
-              this.chartData = {
-                labels: data.labels,
-                datasets: [
-                  {
-                    label: this.$t("outside"),
-                    backgroundColor: this.thermometers[1].color,
-                    data: data.datasets[1],
-                    pointRadius: 1
-                  },
-                  {
-                    label: this.$t("inside"),
-                    backgroundColor: this.thermometers[0].color,
-                    data: data.datasets[0],
-                    pointRadius: 1
-                  }
-                ]
-              }
+              this.chart_data = [
+                data.datasets[0].map(e => e == null ? 0 : e),
+                data.datasets[1].map(e => e == null ? 0 : e)]
             })
         },
         change_locale: function (index) {

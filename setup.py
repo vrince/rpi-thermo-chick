@@ -8,12 +8,12 @@ long_description = (Path(__file__).parent / "readme.md").read_text()
 
 setup(
     name="rpi_thermo_chick",
-    version="1.0.18",
+    version="1.0.20",
     author="Thomas Vincent",
     author_email="vrince@gmail.com",
     license="MIT",
     packages=find_packages(),
-    description="Raspbery Pi - Thermostat 🔥 for chicken 🐔",
+    description="Raspberry Pi - Thermostat 🔥 for chicken 🐔",
     url="https://github.com/vrince/rpi-thermo-chick",
     long_description=long_description,
     long_description_content_type='text/markdown',
