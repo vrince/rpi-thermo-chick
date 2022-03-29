@@ -72,15 +72,11 @@
                     <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=12
                       step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
                   </v-card-actions>
-                  <v-sparkline v-model="chart_data[0]" color="white" height="50" padding="10"
-                    stroke-linecap="round" smooth line-width="2" auto-draw></v-sparkline>
                   <v-card-actions class="justify-end">
                     <span small label outlined color="black" class="text-caption float-right">
                       {{thermometers[0].min.toFixed(0)}} | {{thermometers[0].max.toFixed(0)}}°c</span>
                   </v-card-actions>
                 </v-card>
-                <v-sparkline v-model="chart_data[1]" color="white" height="50" padding="10" stroke-linecap="round" smooth
-                  line-width="2" auto-draw></v-sparkline>
                 <v-list-item-title class="mt-4">
                   <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
                   <span small label outlined color="black" class="text-caption float-right">
@@ -88,6 +84,16 @@
                 </v-list-item-title>
               </v-list-item-content>
             </v-list-item>
+          </v-card>
+          <v-card class="mt-6 mx-auto pa-3" elevation="10" max-width="450" min-height="100">
+            <span class="black--text">{{chart_range[1].toFixed(0)}}°c</span>
+            <v-sheet class="stack-sheet">
+              <v-sparkline v-model="chart_data[0]" :gradient="chart_gradient" height="100" padding="16"
+                stroke-linecap="round" smooth line-width="2" auto-draw></v-sparkline>
+              <v-sparkline class="stacked" v-model="chart_data[1]" :gradient="chart_gradient" height="100" padding="16"
+                stroke-linecap="round" smooth line-width="1" auto-draw></v-sparkline>
+            </v-sheet>
+            <span class="black--text">{{chart_range[0].toFixed(0)}}°c</span>
           </v-card>
         </v-container>
       </v-main>
@@ -127,7 +133,9 @@
         target: 5,
         thermometers: [{ temp: 0, min: 0, max: 0, color: "primary" }, { temp: 0, min: 0, max: 0, color: "primary" }],
         relays: [{}, {}],
-        chart_data: []
+        chart_data: [],
+        chart_range: [0, 0],
+        chart_gradient: gradient.getArray()
       }),
       computed: {
         targetLabel: function () {
@@ -166,6 +174,17 @@
               this.chart_data = [
                 data.datasets[0].map(e => e == null ? 0 : e),
                 data.datasets[1].map(e => e == null ? 0 : e)]
+              this.chart_range = [Math.min(this.thermometers[0].min, this.thermometers[1].min),
+              Math.max(this.thermometers[0].max, this.thermometers[1].max)]
+              this.chart_data[0][0] = this.chart_range[0]
+              this.chart_data[0][1] = this.chart_range[1]
+              this.chart_data[1][0] = this.chart_range[0]
+              this.chart_data[1][1] = this.chart_range[1]
+              this.chart_gradient = []
+              for (let i = this.chart_range[0]; i <= this.chart_range[1]; i++) {
+                this.chart_gradient.push(this.compute_color(i))
+              }
+              this.chart_gradient.reverse()
             })
         },
         change_locale: function (index) {
@@ -197,6 +216,16 @@
       padding: 6px 6px;
       border-radius: 50px;
       background-color: transparent
+    }
+
+    .stack-sheet {
+      position: relative;
+    }
+
+    .stacked {
+      position: absolute;
+      top: 0;
+      left: 0;
     }
   </style>
 </body>
