@@ -1,6 +1,3 @@
-
-import RPi.GPIO as GPIO
-
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,12 +7,16 @@ import click
 
 import datetime
 import json
-from typing import Optional
+import logging
 from threading import Thread
 from time import sleep
-from random import randrange
 from os import environ, path
 from appdirs import user_config_dir
+
+from rpi_thermo_chick.sensors import read_temperature
+from rpi_thermo_chick.relays import init_gpio, set_relay
+
+logger = logging.getLogger('rpi.thermo.chick')
 
 host = environ.get('RPI_THERMO_CHICK_HOST', '0.0.0.0')
 port = environ.get('RPI_THERMO_CHICK_PORT', '8000')
@@ -28,17 +29,6 @@ vue_app = open( module_dir + '/index.html', 'r').read()
 def now_ts():
     return datetime.datetime.now().isoformat()
 
-def read_temperature(device: str) -> float:
-    with open(f'/sys/bus/w1/devices/{device}/w1_slave', 'r') as f:
-        lines = f.readlines()
-        while lines[0].strip()[-3:] != 'YES':
-            return None
-        equals_pos = lines[1].find('t=')
-        if equals_pos != -1:
-            temperature = lines[1][equals_pos+2:]
-            return float(temperature) / 1000.0
-    return None
-
 def get_history_index(date, interval, intervalPerDay):
     seconds_since_midnight = (date - date.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
     return max(0,min(int(seconds_since_midnight / interval), intervalPerDay))
@@ -47,17 +37,12 @@ def rotate(arr,d):
     result = arr[d:len(arr)]+arr[0:d]
     return result
 
-def set_relay(relay_id, state):
-    relays[relay_id]['on'] = state
-    relays[relay_id]['ts'] = now_ts()
-    GPIO.output(relays[relay_id]['pin'], state)
-
 def apply_thermostat():
     inside_temp = thermometers[0]['temp']
     if inside_temp < target_temperature:
-        set_relay(0, GPIO.HIGH)
+        set_relay(0, 1)
     elif inside_temp >= target_temperature + 1:
-        set_relay(0, GPIO.LOW)
+        set_relay(0, 0)
 
 def update_min_max_temperature():
     global thermometers
@@ -87,57 +72,74 @@ def update_temperature():
         apply_thermostat()
         sleep(30)
 
+def update_relay(relay_id, state):
+    relays[relay_id]['on'] = state
+    relays[relay_id]['ts'] = now_ts()
+    set_relay(relays[relay_id]['pin'], state)
+
 def pull_history():
-    with open(config_dir + '/histories.json', 'r') as f:
-        return json.load(f)
+    try:
+        with open(config_dir + '/histories.json', 'r') as f:
+            return json.load(f)
+    except:
+        logger.error('cannot pull history')
+
 
 def push_history(h):
-    with open(config_dir + '/histories.json', 'w') as f:
-        json.dump(h, f)
+    try:
+        with open(config_dir + '/histories.json', 'w') as f:
+            json.dump(h, f)
+    except:
+        logger.error('cannot push history')
 
 # state
 ts = now_ts()
-init = False
+initialized = False
 stopped = False
 interval = 15*60 # 15 min in sec 
 intervalPerDay = 24*4 #number of interval (15min) per day
 target_temperature = 5
-
 config = {}
-with open(config_dir + '/config.json', 'r') as f:
-    config = json.load(f)
-
-# read mendatory relay / thermometers info
-relays = config['relays']
-thermometers = config['thermometers']
-
-# init the rest
-for r in relays:
-    r.update({'on':0, 'ts': now_ts()})
-for t in thermometers:
-    t.update({'temp':0, 'ts': now_ts(), 'min': 0, 'max': 0})
-
-# read back historical data
+relays = []
+thermometers = []
 histories = []
-try:
-    histories = pull_history()
-    update_min_max_temperature()
-except:
-    histories = [[None] * intervalPerDay, [None] * intervalPerDay]
-    push_history(histories)
 
-# setup GPIO
-if not init:
-    init = True
-    GPIO.setmode(GPIO.BCM)
-    for i,relay in enumerate(relays):
-        GPIO.setup(relay['pin'], GPIO.OUT)
-        GPIO.output(relay['pin'], GPIO.LOW)
+def init(config_file=''):
+    global config, relays, thermometers, histories, initialized
 
-# start temp update loop
-thread = Thread(target=update_temperature, name='temperature-loop')
-thread.setDaemon(True)
-thread.start()
+    if not config_file:
+        config_file = config_dir + '/config.json'
+
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+
+    # read mandatory relay / thermometers info
+    relays = config['relays']
+    thermometers = config['thermometers']
+
+    # init the rest
+    for r in relays:
+        r.update({'on':0, 'ts': now_ts()})
+    for t in thermometers:
+        t.update({'temp':0, 'ts': now_ts(), 'min': 0, 'max': 0})
+
+    # read back historical data
+    try:
+        histories = pull_history()
+        update_min_max_temperature()
+    except:
+        histories = [[None] * intervalPerDay, [None] * intervalPerDay]
+        push_history(histories)
+
+    # setup GPIO
+    if not initialized:
+        initialized = True
+        init_gpio(relays)
+
+    # start temp update loop
+    thread = Thread(target=update_temperature, name='temperature-loop')
+    thread.setDaemon(True)
+    thread.start()
 
 # server
 @app.get('/')
@@ -168,7 +170,7 @@ def read_item(relay_id: int, action: str = 'on'):
     if action not in ['on','off']:
         return  {'ok': False, 'msg': 'action must be \'on\' or \'off\''}
 
-    set_relay(relay_id, GPIO.HIGH if action == 'on' else GPIO.LOW)
+    update_relay(relay_id, 1 if action == 'on' else 0)
     return {'ok': True, 'relays': relays}
 
 @app.get('/chart')
@@ -191,11 +193,13 @@ def set_target_temperature(temperature: int):
     
 @click.command()
 @click.option('--host', default='0.0.0.0', help='Host (default 0.0.0.0) [env RPI_THERMO_CHICK_HOST]')
-@click.option('--port', default=8000,   help='Port (default 8000) [env RPI_THERMO_CHICK_PORT]')
-def cli(host, port):
+@click.option('--port', default=8000, help='Port (default 8000) [env RPI_THERMO_CHICK_PORT]')
+@click.option('--config-file', default=f'{config_dir}/config.json', help='Config file [env RPI_THERMO_CHICK_CONFIG]')
+def cli(host, port, config_file):
     """
     rpi-thermo-chick: 🐔🔥
     """
+    init(config_file)
     uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":
