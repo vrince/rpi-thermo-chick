@@ -22,7 +22,8 @@ setup(
         'fastapi==0.70.0',
         'uvicorn[standard]==0.15.0',
         'click==8.0.3',
-        'appdirs==1.4.4'
+        'appdirs==1.4.4',
+        'influxdb==1.33.0'
     ],
     entry_points={
     'console_scripts': [

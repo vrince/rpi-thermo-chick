@@ -13,10 +13,10 @@ from time import sleep
 from os import environ, path
 from appdirs import user_config_dir
 
+from rpi_thermo_chick import logger
 from rpi_thermo_chick.sensors import read_temperature
 from rpi_thermo_chick.relays import init_gpio, set_relay
-
-logger = logging.getLogger('rpi.thermo.chick')
+from rpi_thermo_chick.influxdb import init_influxdb_client, write_to_influxdb
 
 host = environ.get('RPI_THERMO_CHICK_HOST', '0.0.0.0')
 port = environ.get('RPI_THERMO_CHICK_PORT', '8000')
@@ -40,9 +40,9 @@ def rotate(arr,d):
 def apply_thermostat():
     inside_temp = thermometers[0]['temp']
     if inside_temp < target_temperature:
-        set_relay(0, 1)
+        update_relay(0, 1)
     elif inside_temp >= target_temperature + 1:
-        set_relay(0, 0)
+        update_relay(0, 0)
 
 def update_min_max_temperature():
     global thermometers
@@ -50,8 +50,7 @@ def update_min_max_temperature():
         thermometers[i]['min'] = min([e for e in histories[i] if e is not None])
         thermometers[i]['max'] = max([e for e in histories[i] if e is not None])
 
-# temperature update
-def update_temperature():
+def update():
     global thermometers, histories, ts, index
     now = datetime.datetime.now()
     last_push = now
@@ -59,18 +58,22 @@ def update_temperature():
         ts = now_ts()
         now = datetime.datetime.now()
         index = get_history_index(now,interval, intervalPerDay)
+        fields = {}
         for i, t in enumerate(thermometers):
             temp = read_temperature(t['device'])
+            fields[str(i)] = temp
+            influxdb.get('bucket', 'rpi_thermo_chick')
             if temp is not None:
                 thermometers[i]['temp'] = temp
                 thermometers[i]['ts'] = now_ts()
                 histories[i][index] = temp
+        write_to_influxdb({'fields': fields, 'tags': {'project':'🐔🔥'}})
         if (now - last_push).total_seconds() > 120:
             last_push = now
             update_min_max_temperature()
             push_history(histories)
         apply_thermostat()
-        sleep(30)
+        sleep(10)
 
 def update_relay(relay_id, state):
     relays[relay_id]['on'] = state
@@ -103,9 +106,10 @@ config = {}
 relays = []
 thermometers = []
 histories = []
+influxdb = {}
 
 def init(config_file=''):
-    global config, relays, thermometers, histories, initialized
+    global config, relays, thermometers, histories, initialized, influxdb
 
     if not config_file:
         config_file = config_dir + '/config.json'
@@ -116,6 +120,9 @@ def init(config_file=''):
     # read mandatory relay / thermometers info
     relays = config['relays']
     thermometers = config['thermometers']
+
+    # read optional
+    influxdb = config.get('influxdb', {})
 
     # init the rest
     for r in relays:
@@ -137,7 +144,7 @@ def init(config_file=''):
         init_gpio(relays)
 
     # start temp update loop
-    thread = Thread(target=update_temperature, name='temperature-loop')
+    thread = Thread(target=update, name='temperature-loop')
     thread.setDaemon(True)
     thread.start()
 
@@ -167,10 +174,10 @@ def read_item(relay_id: int, action: str = 'on'):
     if relay_id not in valid_ids:
         return  {'ok': False, 'msg': f'relay_id must be in {valid_ids}'}
 
-    if action not in ['on','off']:
+    if action not in ['on','off', '1', '0']:
         return  {'ok': False, 'msg': 'action must be \'on\' or \'off\''}
 
-    update_relay(relay_id, 1 if action == 'on' else 0)
+    update_relay(relay_id, 1 if action in ['on', '1'] else 0)
     return {'ok': True, 'relays': relays}
 
 @app.get('/chart')
@@ -200,6 +207,7 @@ def cli(host, port, config_file):
     rpi-thermo-chick: 🐔🔥
     """
     init(config_file)
+    init_influxdb_client(influxdb)
     uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":
