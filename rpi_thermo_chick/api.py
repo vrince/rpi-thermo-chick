@@ -1,3 +1,4 @@
+from ast import Str
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -113,8 +114,8 @@ def read_root():
 
 @app.get('/app', response_class=HTMLResponse)
 def read_vue_app():
-    #return open(module_dir + '/index.html', 'r').read()
-    return vue_app
+    return open(module_dir + '/index.html', 'r').read()
+    #return vue_app
 
 @app.get('/relay/{relay_id}/{action}')
 def read_item(relay_id: int, action: str = 'on'):
@@ -128,9 +129,9 @@ def read_item(relay_id: int, action: str = 'on'):
     return {'ok': True, 'relays': relays}
 
 @app.get('/chart')
-def read_history():
-    timestamp, inside = query_mean(field='inside', window='15m', range='24h')
-    _, outside = query_mean(field='outside', window='15m', range='24h')
+def chart_data(window: str = '15m', range: str = '24h'):
+    timestamp, inside = query_mean(field='inside', window=window, range=range)
+    _, outside = query_mean(field='outside', window=window, range=range)
     return {
         'rpi-thermo-chick': '🐔🔥',
         'ok': True,

@@ -10,6 +10,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
 </head>
 
+<script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+<script>highcharts = Highcharts</script>
+<script src="https://cdn.jsdelivr.net/npm/highcharts-vue@1.4.0/dist/highcharts-vue.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+<script>var module = {};</script>
+<script src="https://cdn.jsdelivr.net/npm/javascript-color-gradient@1.3.2/src/index.min.js"></script>
+<script src="https://unpkg.com/vue-i18n@8"></script>
+
+
 <body>
   <div id="app">
     <v-app id="inspire">
@@ -84,26 +94,13 @@
                 </v-list-item-title>
               </v-list-item-content>
             </v-list-item>
-          </v-card>
-          <v-card class="mt-6 mx-auto pa-3" elevation="10" max-width="450" min-height="100">
-            <span class="black--text">{{chart_range[1].toFixed(0)}}°c</span>
-            <v-sheet class="stack-sheet">
-              <v-sparkline v-model="chart_data[0]" :gradient="chart_gradient" height="100" padding="16"
-                stroke-linecap="round" smooth line-width="2" auto-draw></v-sparkline>
-              <v-sparkline class="stacked" v-model="chart_data[1]" :gradient="chart_gradient" height="100" padding="16"
-                stroke-linecap="round" smooth line-width="1" auto-draw></v-sparkline>
-            </v-sheet>
-            <span class="black--text">{{chart_range[0].toFixed(0)}}°c</span>
-          </v-card>
         </v-container>
+        <highcharts class="ma-4" :options="options" ref="highcharts"></highcharts>
       </v-main>
+     
     </v-app>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
-  <script>var module = {};</script>
-  <script src="https://cdn.jsdelivr.net/npm/javascript-color-gradient@1.3.2/src/index.min.js"></script>
-  <script src="https://unpkg.com/vue-i18n@8"></script>
+
   <script>
     const gradient = new Gradient();
     gradient.setGradient("#1a66ff", "#80ffbf", "#ffe680", "#ff9933", "#ff3333");
@@ -118,6 +115,7 @@
         outside: "Exterieur"
       },
     };
+    Vue.use(HighchartsVue.default)
     const i18n = new VueI18n({ messages: messages });
     new Vue({
       el: '#app',
@@ -133,13 +131,54 @@
         target: 5,
         thermometers: [{ temp: 0, min: 0, max: 0, color: "primary" }, { temp: 0, min: 0, max: 0, color: "primary" }],
         relays: [{}, {}],
+        chart_labels: [],
         chart_data: [],
-        chart_range: [0, 0],
-        chart_gradient: gradient.getArray()
       }),
       computed: {
         targetLabel: function () {
           return `${this.target}°c`
+        },
+        options: function() {
+          return {
+            chart: { type : 'spline' },
+            title: { text:'' },
+            credits: { enabled: false },
+            xAxis: {
+              type: 'datetime',
+              categories: this.chart_labels,
+              labels: {
+                formatter: function() {
+                  return Highcharts.dateFormat('%Hh%M', this.value);
+                }
+              }
+            },
+            time: { useUTC: false },
+            yAxis: { title: { text: '' } },
+            tooltip: { valueSuffix: '°C' },
+            legend: {
+              layout: 'vertical',
+              align: 'left',
+              verticalAlign: 'top',
+              borderWidth: 0,
+              x: 25,
+              floating: true,
+            },
+            series: [
+              {
+                name: this.$t('outside'),
+                data: this.chart_data[1],
+                color: this.thermometers[1].color,
+                marker: {enabled: false}
+              },
+              {
+                name: this.$t('inside'),
+                data: this.chart_data[0],
+                color: this.thermometers[0].color,
+                marker: {enabled: false},
+                lineWidth: 3
+              }
+            ]
+          }
         }
       },
       methods: {
@@ -171,20 +210,10 @@
           fetch("/chart")
             .then(response => response.json())
             .then(data => {
+              this.chart_labels = data.labels.map( e => new Date(e).getTime())
               this.chart_data = [
                 data.datasets[0].map(e => e == null ? 0 : e),
                 data.datasets[1].map(e => e == null ? 0 : e)]
-              this.chart_range = [Math.min(this.thermometers[0].min, this.thermometers[1].min),
-              Math.max(this.thermometers[0].max, this.thermometers[1].max)]
-              this.chart_data[0][0] = this.chart_range[0]
-              this.chart_data[0][1] = this.chart_range[1]
-              this.chart_data[1][0] = this.chart_range[0]
-              this.chart_data[1][1] = this.chart_range[1]
-              this.chart_gradient = []
-              for (let i = this.chart_range[0]; i <= this.chart_range[1]; i++) {
-                this.chart_gradient.push(this.compute_color(i))
-              }
-              this.chart_gradient.reverse()
             })
         },
         change_locale: function (index) {
@@ -206,6 +235,8 @@
         this.fetch_chart()
         setInterval(() => { this.fetch_temperature() }, 10000)
         setInterval(() => { this.fetch_chart() }, 30000)
+        var chart = this.$refs.highcharts.chart
+        chart.credits.update({ style: { color: '#' + (Math.random() * 0xffffff | 0).toString(16) }})
       }
     })
   </script>
