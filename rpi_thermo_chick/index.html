@@ -84,13 +84,13 @@
                   </v-card-actions>
                   <v-card-actions class="justify-end">
                     <span small label outlined color="black" class="text-caption float-right">
-                      {{thermometers[0].min.toFixed(0)}} | {{thermometers[0].max.toFixed(0)}}°c</span>
+                      {{chart_range.min[0].toFixed(0)}} | {{chart_range.max[0].toFixed(0)}}°c</span>
                   </v-card-actions>
                 </v-card>
                 <v-list-item-title class="mt-4">
                   <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
                   <span small label outlined color="black" class="text-caption float-right">
-                    {{thermometers[1].min.toFixed(0)}} | {{thermometers[1].max.toFixed(0)}}°c</span>
+                    {{chart_range.min[1].toFixed(0)}} | {{chart_range.max[1].toFixed(0)}}°c</span>
                 </v-list-item-title>
               </v-list-item-content>
             </v-list-item>
@@ -129,10 +129,11 @@
         locales: ["fr", "en"],
         colors: gradient.getArray(),
         target: 5,
-        thermometers: [{ temp: 0, min: 0, max: 0, color: "primary" }, { temp: 0, min: 0, max: 0, color: "primary" }],
+        thermometers: [{ temp: 0, color: "primary" }, { temp: 0, color: "primary" }],
         relays: [{}, {}],
         chart_labels: [],
         chart_data: [],
+        chart_range: { min: [0,0], max: [0,0]}
       }),
       computed: {
         targetLabel: function () {
@@ -211,9 +212,9 @@
             .then(response => response.json())
             .then(data => {
               this.chart_labels = data.labels.map( e => new Date(e).getTime())
-              this.chart_data = [
-                data.datasets[0].map(e => e == null ? 0 : e),
-                data.datasets[1].map(e => e == null ? 0 : e)]
+              this.chart_data = [ data.datasets[0], data.datasets[1]]
+              this.chart_range.min = this.chart_data.map( a => Math.min.apply(Math, a))
+              this.chart_range.max = this.chart_data.map( a => Math.max.apply(Math, a))
             })
         },
         change_locale: function (index) {

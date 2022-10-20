@@ -88,7 +88,7 @@ def init(config_file=''):
     for r in relays:
         r.update({'on':0, 'ts': now_ts()})
     for t in thermometers:
-        t.update({'temp':0, 'ts': now_ts(), 'min': 0, 'max': 0})
+        t.update({'temp':0, 'ts': now_ts()})
 
     # setup GPIO
     if not initialized:
