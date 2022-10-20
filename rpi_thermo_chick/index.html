@@ -207,7 +207,7 @@
             })
         },
         fetch_chart: function () {
-          fetch("/chart")
+          fetch("/chart?window=30m&range=1d")
             .then(response => response.json())
             .then(data => {
               this.chart_labels = data.labels.map( e => new Date(e).getTime())
