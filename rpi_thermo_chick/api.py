@@ -1,23 +1,23 @@
 from ast import Str
-from fastapi import FastAPI
+from typing import List
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 
 import uvicorn
 import click
 
 import datetime
 import json
-import logging
 from threading import Thread
 from time import sleep
 from os import environ, path
 from appdirs import user_config_dir
+from pydantic import BaseModel
 
 from rpi_thermo_chick import logger
 from rpi_thermo_chick.sensors import read_temperature
 from rpi_thermo_chick.relays import init_gpio, set_relay
-from rpi_thermo_chick.influxdb import init_influxdb_client, write_to_influxdb, query_mean
+from rpi_thermo_chick.influxdb import init_influxdb_client, write_to_influxdb, query_mean, is_influxdb_ready
 
 host = environ.get('RPI_THERMO_CHICK_HOST', '0.0.0.0')
 port = environ.get('RPI_THERMO_CHICK_PORT', '8000')
@@ -48,7 +48,7 @@ def update():
             if temp is not None:
                 thermometers[i]['temp'] = temp
                 thermometers[i]['ts'] = now_ts()
-        write_to_influxdb(fields=fields)
+        write_to_influxdb(name="temperature_sensors", fields=fields, bucket=config.influxdb.bucket, org=config.influxdb.org)
         apply_thermostat()
         sleep(10)
 
@@ -57,32 +57,47 @@ def update_relay(relay_id, state):
     relays[relay_id]['ts'] = now_ts()
     set_relay(relays[relay_id]['pin'], state)
 
+
+class Relay(BaseModel):
+    pin: int
+
+class Thermometer(BaseModel):
+    name: str
+    device: str
+
+class Influxdb(BaseModel):
+    url: str = 'http://localhost:8086'
+    bucket: str = 'bucket'
+    org: str = 'org'
+    token: str
+
+class Config(BaseModel):
+    relays: List[Relay]
+    thermometers: List[Thermometer]
+    influxdb: Influxdb = None
+
+
 # state
 ts = now_ts()
 initialized = False
 stopped = False
-interval = 15*60 # 15 min in sec 
-intervalPerDay = 24*4 #number of interval (15min) per day
 target_temperature = 5
-config = {}
+config = None
 relays = []
 thermometers = []
-histories = []
-influxdb = {}
 
 def init(config_file=''):
-    global config, relays, thermometers, histories, initialized, influxdb
+    global config, relays, thermometers, initialized, influxdb
     if not config_file:
         config_file = config_dir + '/config.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
+    config = Config.parse_file(config_file)
 
     # read mandatory relay / thermometers info
-    relays = config['relays']
-    thermometers = config['thermometers']
+    relays = config.dict()['relays']
+    thermometers = config.dict()['thermometers']
 
     # read optional
-    influxdb = config.get('influxdb', {})
+    init_influxdb_client(config.influxdb)
 
     # init the rest
     for r in relays:
@@ -95,6 +110,7 @@ def init(config_file=''):
         initialized = True
         init_gpio(relays)
 
+def start():
     # start temp update loop
     thread = Thread(target=update, name='temperature-loop')
     thread.setDaemon(True)
@@ -130,8 +146,16 @@ def read_item(relay_id: int, action: str = 'on'):
 
 @app.get('/chart')
 def chart_data(window: str = '15m', range: str = '24h'):
-    timestamp, inside = query_mean(field='inside', window=window, range=range)
-    _, outside = query_mean(field='outside', window=window, range=range)
+    if not is_influxdb_ready:
+        raise HTTPException(status_code=404, detail="influxdb is missing")
+    bucket = config.influxdb.bucket
+    org = config.influxdb.org
+    timestamp, inside = query_mean(name='temperature_sensors', field='inside', 
+        window=window, range=range, 
+        bucket=bucket, org=org)
+    _, outside = query_mean(name='temperature_sensors', field='outside', 
+        window=window, range=range, 
+        bucket=bucket, org=org)
     return {
         'rpi-thermo-chick': '🐔🔥',
         'ok': True,
@@ -156,7 +180,7 @@ def cli(host, port, config_file):
     rpi-thermo-chick: 🐔🔥
     """
     init(config_file)
-    init_influxdb_client(influxdb)
+    start()
     uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":
