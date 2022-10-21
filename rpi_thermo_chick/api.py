@@ -14,6 +14,7 @@ from time import sleep
 from os import environ, path
 from appdirs import user_config_dir
 from pydantic import BaseModel
+from importlib.metadata import version
 
 from rpi_thermo_chick import logger
 from rpi_thermo_chick.sensors import read_temperature
@@ -25,7 +26,13 @@ port = environ.get('RPI_THERMO_CHICK_PORT', '8000')
 config_dir = user_config_dir('rpi-thermo-chick')
 module_dir = path.dirname(__file__)
 
-app = FastAPI()
+app = FastAPI( title="rpi-thermo-chick",
+    description='Thermostat for chicken 🐔🔥',
+    version=version('rpi-thermo-chick'),
+    terms_of_service="http://example.com/terms/",
+    license_info={
+        "name": "MIT",
+    },)
 vue_app = open( module_dir + '/index.html', 'r').read()
 
 def now_ts():
@@ -133,12 +140,12 @@ def read_root():
         }
 
 @app.get('/app', response_class=HTMLResponse)
-def read_vue_app():
+def get_vue_app():
     return open(module_dir + '/index.html', 'r').read()
     #return vue_app
 
 @app.get('/relay/{relay_id}/{action}')
-def read_item(relay_id: int, action: str = 'on'):
+def set_relay_action(relay_id: int, action: str = 'on'):
     valid_ids = range(0, len(relays)-1)
     if relay_id not in valid_ids:
         return  {'ok': False, 'msg': f'relay_id must be in {valid_ids}'}
@@ -149,7 +156,7 @@ def read_item(relay_id: int, action: str = 'on'):
     return {'ok': True, 'relays': relays}
 
 @app.get('/chart')
-def chart_data(window: str = '15m', range: str = '24h'):
+def get_chart_data(window: str = '15m', range: str = '24h'):
     if not is_influxdb_ready:
         raise HTTPException(status_code=404, detail="influxdb is missing")
     bucket = config.influxdb.bucket

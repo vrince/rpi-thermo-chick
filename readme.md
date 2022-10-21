@@ -17,7 +17,7 @@ Backend python 3 - fastapi / frontend vuejs - vuetify
 
 ## OS preparation
 
-Enable `1-wire`: 
+Enable `1-wire`:
 
 Add following lines to your `/boot/config.txt`:
 
@@ -33,14 +33,13 @@ This project is meant to run as a  service (see next section), but to give it a 
 
 ```bash
 # install from pip repository
-pip install rpi_thermo_chick
+pip install rpi-thermo-chick
 
 # create empty configuration file
 sudo pi-thermo-chick.service configure
 
 # edit configuration file (See configuration section)
 sudo nano /root/.config/rpi-thermo-chick/config.json
-
 ```
 
 ## Install as a service
@@ -49,7 +48,7 @@ All the following command are prefix by sudo cause the service will be run as a 
 
 ```bash
 # install from pip repository
-sudo pip install rpi_thermo_chick
+sudo pip install rpi-thermo-chick
 
 # create empty configuration file
 sudo pi-thermo-chick.service configure
@@ -88,8 +87,16 @@ Configuration file content is a simple json and look like:
 
 ```json
 {
-    "relays": [ { "pin": 4 }, { "pin": 7 } ],
-    "thermometers": [ { "device": "28-3c01d0751fcd" }, { "device": "28-3c01d075db96" } ]
+    "relays": [ 
+        { "pin": 4 }, { "pin": 7 } ],
+    "thermometers": [ 
+        { "device": "28-3c01d0751fcd", "name": "inside" }, { "device": "28-3c01d075db96", "name": "outside"  } ],
+    "influxdb": {
+        "url": "http://localhost:8086",
+        "bucket": "bucket",
+        "org": "org",
+        "token": "<token>"
+    }
 }
 ```
 
@@ -118,23 +125,38 @@ Simply update the config file with the physical gpio pins wired to the relays.
 
 ⚠️ **make sure the first relays is the one controlling the load (second one is not used)**
 
+### Configure influxdb (optional)
+
+Data history is stored in `influxdb` (2.x), to enable this feature pass a valid influxdb url/org/bucket/token in the config file.
+
+Obviously the token must provide write permission so relays and temperature sensor data can be stored.
+
+Setup of influxdb is out of the scope of this project, please see https://hub.docker.com/_/influxdb or https://docs.influxdata.com/influxdb/v2.4/install/.
+
 ## Development
 
 ```bash
 git clone https://github.com/vrince/rpi-thermo-chick.git
 cd rpi_thermo_chick
 
-# see configuration
-python rpi_thermo_chick/service.py configure
+# build and activate a virtual env (optional)
 
-# run it locally
-python rpi_thermo_chick/api.py --port 8000
+# install in dev mode
+pip install -e .
+
+# see configuration
+nano config.json
+
+# run it locally with the config you just created
+rpi-thermo-chick --config-file config.json --port 8000
 ```
 
 * Open `http://<pi-ip>:8000/app` to see the `vuejs` app
 * Open `http://<pi-ip>:8000` to see current state json payload
 
 Note: replace `<pi-ip>` by you actual raspberry pi address, like `192.168.2.205`
+
+> You can still run and develop on a machine that is not a rpi and that has nothing plug to it, temp dat will be random but everything will still work
 
 ### API
 
@@ -147,3 +169,4 @@ As the API use `fast-api` the documentation of the API can be access at `http://
 * [fastapi](https://fastapi.tiangolo.com/)
 * [vuejs](https://vuejs.org/)
 * [vuetifyjs](https://vuetifyjs.com/en/)
+* [influxdata](https://www.influxdata.com/)
