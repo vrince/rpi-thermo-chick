@@ -1,4 +1,5 @@
 from ast import Str
+from dataclasses import fields
 from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -56,6 +57,9 @@ def update_relay(relay_id, state):
     relays[relay_id]['on'] = state
     relays[relay_id]['ts'] = now_ts()
     set_relay(relays[relay_id]['pin'], state)
+    tags = {'pin': relays[relay_id]['pin'], 'id': relay_id}
+    fields = {'on': state}
+    write_to_influxdb(name="relays", fields=fields, tags=tags, bucket=config.influxdb.bucket, org=config.influxdb.org)
 
 
 class Relay(BaseModel):
