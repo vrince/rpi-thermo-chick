@@ -47,7 +47,12 @@
         <v-toolbar-title>rpi-thermo-chick 🐔</v-toolbar-title>
         <v-toolbar-title v-if="relays[0].on">🔥</v-toolbar-title>
         <v-spacer></v-spacer>
-        <v-btn icon v-if="locale != locales[1]" @click="change_locale(1)"> en </v-btn>
+        <v-btn-toggle v-model="range">
+          <v-btn>{{$t("day")}}</v-btn>
+          <v-btn>{{$t("week")}}</v-btn>
+          <v-btn>{{$t("month")}}</v-btn>
+        </v-btn-toggle>
+        <v-btn icon v-if="locale != locales[1]" @click="change_locale(1)" class="ml-4"> en </v-btn>
         <v-btn icon v-else @click="change_locale(0)"> fr </v-btn>
       </v-app-bar>
 
@@ -83,19 +88,19 @@
                       step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
                   </v-card-actions>
                   <v-card-actions class="justify-end">
-                    <span small label outlined color="black" class="text-caption float-right">
+                    <span v-if="display_graph" small label outlined color="black" class="text-caption float-right">
                       {{chart_range.min[0].toFixed(0)}} | {{chart_range.max[0].toFixed(0)}}°c</span>
                   </v-card-actions>
                 </v-card>
                 <v-list-item-title class="mt-4">
                   <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
-                  <span small label outlined color="black" class="text-caption float-right">
+                  <span v-if="display_graph"  small label outlined color="black" class="text-caption float-right">
                     {{chart_range.min[1].toFixed(0)}} | {{chart_range.max[1].toFixed(0)}}°c</span>
                 </v-list-item-title>
               </v-list-item-content>
             </v-list-item>
         </v-container>
-        <highcharts class="ma-4" :options="options" ref="highcharts"></highcharts>
+        <highcharts v-if="display_graph" class="mt-4" :options="options" ref="highcharts"></highcharts>
       </v-main>
      
     </v-app>
@@ -108,11 +113,17 @@
     const messages = {
       en: {
         inside: "Inside",
-        outside: "Outside"
+        outside: "Outside",
+        day: "1 day",
+        week: "1 week",
+        month: "1 month"
       },
       fr: {
         inside: "Interieur",
-        outside: "Exterieur"
+        outside: "Exterieur",
+        day: "1 jour",
+        week: "1 semaine",
+        month: "1 mois"
       },
     };
     Vue.use(HighchartsVue.default)
@@ -133,17 +144,25 @@
         relays: [{}, {}],
         chart_labels: [],
         chart_data: [],
-        chart_range: { min: [0,0], max: [0,0]}
+        chart_range: { min: [0,0], max: [0,0]},
+        range: 0,
+        range_query: [
+          "window=15m&range=1d",
+          "window=4h&range=1w",
+          "window=12h&range=1m"
+        ]
       }),
       computed: {
         targetLabel: function () {
           return `${this.target}°c`
         },
+        display_graph() {
+          return this.range != undefined
+        },
         options: function() {
           return {
             chart: { type : 'spline' },
             title: { text:'' },
-            credits: { enabled: false },
             xAxis: {
               type: 'datetime',
               categories: this.chart_labels,
@@ -155,7 +174,7 @@
             },
             time: { useUTC: false },
             yAxis: { title: { text: '' } },
-            tooltip: { valueSuffix: '°C' },
+            tooltip: { valueSuffix: '°C', valueDecimals: 1 },
             legend: {
               layout: 'vertical',
               align: 'left',
@@ -208,7 +227,10 @@
             })
         },
         fetch_chart: function () {
-          fetch("/chart?window=30m&range=1d")
+          if(this.range == undefined) {
+            return
+          }
+          fetch("/chart?" + this.range_query[this.range])
             .then(response => response.json())
             .then(data => {
               this.chart_labels = data.labels.map( e => new Date(e).getTime())
@@ -226,6 +248,9 @@
       watch: {
         target: function (val) {
           fetch(`/target/${val}`)
+        },
+        range: function (val) {
+          this.fetch_chart()
         }
       },
       created() {

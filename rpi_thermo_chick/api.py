@@ -58,15 +58,16 @@ def update():
                 thermometers[i]['ts'] = now_ts()
         write_to_influxdb(name="temperature_sensors", fields=fields, bucket=config.influxdb.bucket, org=config.influxdb.org)
         apply_thermostat()
-        sleep(10)
+        tags = {'id': 0}
+        fields = {'on': int(relays[0]['on'])}
+        write_to_influxdb(name="relays", fields=fields, tags=tags, bucket=config.influxdb.bucket, org=config.influxdb.org)
+        sleep(config.period)
+
 
 def update_relay(relay_id, state):
     relays[relay_id]['on'] = state
     relays[relay_id]['ts'] = now_ts()
     set_relay(relays[relay_id]['pin'], state)
-    tags = {'pin': relays[relay_id]['pin'], 'id': relay_id}
-    fields = {'on': state}
-    write_to_influxdb(name="relays", fields=fields, tags=tags, bucket=config.influxdb.bucket, org=config.influxdb.org)
 
 
 class Relay(BaseModel):
@@ -86,6 +87,7 @@ class Config(BaseModel):
     relays: List[Relay]
     thermometers: List[Thermometer]
     influxdb: Influxdb = None
+    period: int = 30
 
 
 # state
@@ -167,12 +169,16 @@ def get_chart_data(window: str = '15m', range: str = '24h'):
     _, outside = query_mean(name='temperature_sensors', field='outside', 
         window=window, range=range, 
         bucket=bucket, org=org)
+    _, relay = query_mean(name='relays', field='on',
+        window=window, range=range, 
+        bucket=bucket, org=org)
     return {
         'rpi-thermo-chick': '🐔🔥',
         'ok': True,
         'ts': ts,
         'labels': timestamp,
-        'datasets': [inside, outside]
+        'datasets': [inside, outside],
+        'relay': relay
         }
 
 @app.get('/target/{temperature}')

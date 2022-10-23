@@ -32,7 +32,7 @@ def write_to_influxdb(name='measurement', tags={}, fields={}, bucket='bucket', o
     except Exception as e:
         logger.warning(f'cannot write influxdb client, exception({e})')
 
-def query_mean(name='measurement', field='inside', range='24h', window='15m', bucket='bucket', org='org'):
+def query_mean(name='measurement', field='inside', range='24h', window='15m', bucket='bucket', org='org', function='mean'):
     try:
         query_api = client.query_api()
 
@@ -40,8 +40,8 @@ def query_mean(name='measurement', field='inside', range='24h', window='15m', bu
         f'|> range(start: -{range})\n'
         f'|> filter(fn:(r) => r._measurement == "{name}")\n'
         f'|> filter(fn: (r) => r["_field"] == "{field}")\n'
-        f'|> aggregateWindow(every: {window}, fn: mean, createEmpty: false)\n'
-        f'|> yield(name: "mean")')
+        f'|> aggregateWindow(every: {window}, fn: {function}, createEmpty: false)\n'
+        f'|> yield(name: "{function}")')
 
         result = query_api.query(org=org, query=query)
 
