@@ -177,8 +177,7 @@ def get_chart_data(window: str = '15m', range: str = '24h'):
         'ok': True,
         'ts': ts,
         'labels': timestamp,
-        'datasets': [inside, outside],
-        'relay': relay
+        'datasets': [inside, outside, [int(r * 100) for r in relay]]
         }
 
 @app.get('/target/{temperature}')

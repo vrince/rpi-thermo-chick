@@ -108,22 +108,24 @@
 
   <script>
     const gradient = new Gradient();
-    gradient.setGradient("#1a66ff", "#80ffbf", "#ffe680", "#ff9933", "#ff3333");
+    gradient.setGradient('#1a66ff', '#80ffbf', '#ffe680', '#ff9933', '#ff3333');
     gradient.setMidpoint(30);
     const messages = {
       en: {
-        inside: "Inside",
-        outside: "Outside",
-        day: "1 day",
-        week: "1 week",
-        month: "1 month"
+        inside: 'Inside',
+        outside: 'Outside',
+        day: '1 day',
+        week: '1 week',
+        month: '1 month',
+        relay: 'Relay'
       },
       fr: {
-        inside: "Interieur",
-        outside: "Exterieur",
-        day: "1 jour",
-        week: "1 semaine",
-        month: "1 mois"
+        inside: 'Interieur',
+        outside: 'Exterieur',
+        day: '1 jour',
+        week: '1 semaine',
+        month: '1 mois',
+        relay: 'Relais'
       },
     };
     Vue.use(HighchartsVue.default)
@@ -136,20 +138,20 @@
       i18n: i18n,
       data: () => ({
         drawer: null,
-        locale: localStorage.getItem("locale") || "fr",
-        locales: ["fr", "en"],
+        locale: localStorage.getItem('locale') || 'fr',
+        locales: ['fr', 'en'],
         colors: gradient.getArray(),
         target: 5,
-        thermometers: [{ temp: 0, color: "primary" }, { temp: 0, color: "primary" }],
+        thermometers: [{ temp: 0, color: 'primary' }, { temp: 0, color: 'primary' }],
         relays: [{}, {}],
         chart_labels: [],
         chart_data: [],
         chart_range: { min: [0,0], max: [0,0]},
         range: 0,
         range_query: [
-          "window=15m&range=1d",
-          "window=4h&range=1w",
-          "window=12h&range=1m"
+          'window=15m&range=1d',
+          'window=4h&range=1w',
+          'window=12h&range=1m'
         ]
       }),
       computed: {
@@ -173,8 +175,7 @@
               }
             },
             time: { useUTC: false },
-            yAxis: { title: { text: '' } },
-            tooltip: { valueSuffix: '°C', valueDecimals: 1 },
+            yAxis: [{ title: { text: '' } },{ title: { text: '' }, min:0 , max: 100, opposite: true}],
             legend: {
               layout: 'vertical',
               align: 'left',
@@ -188,14 +189,25 @@
                 name: this.$t('outside'),
                 data: this.chart_data[1],
                 color: this.thermometers[1].color,
-                marker: {enabled: false}
+                marker: {enabled: false},
+                tooltip: { valueSuffix: '°C', valueDecimals: 1},
               },
               {
                 name: this.$t('inside'),
                 data: this.chart_data[0],
                 color: this.thermometers[0].color,
                 marker: {enabled: false},
-                lineWidth: 3
+                lineWidth: 3,
+                tooltip: { valueSuffix: '°C', valueDecimals: 1},
+              },
+              {
+                name: this.$t('relay'),
+                data: this.chart_data[2],
+                color: 'black',
+                marker: {enabled: false},
+                dashStyle: 'Dot',
+                yAxis: 1,
+                tooltip: { valueSuffix: '%', valueDecimals: 0},
               }
             ]
           }
@@ -209,14 +221,14 @@
         },
         toggle_relay: function () {
           if (this.relays[0].on)
-            fetch("/relay/0/off")
+            fetch('/relay/0/off')
               .then(this.fetch_temperature())
           else
-            fetch("/relay/0/on")
+            fetch('/relay/0/on')
               .then(this.fetch_temperature())
         },
         fetch_temperature: function () {
-          fetch("/")
+          fetch('/')
             .then(response => response.json())
             .then(data => {
               this.thermometers = data.thermometers
@@ -230,11 +242,11 @@
           if(this.range == undefined) {
             return
           }
-          fetch("/chart?" + this.range_query[this.range])
+          fetch('/chart?' + this.range_query[this.range])
             .then(response => response.json())
             .then(data => {
               this.chart_labels = data.labels.map( e => new Date(e).getTime())
-              this.chart_data = [ data.datasets[0], data.datasets[1]]
+              this.chart_data = data.datasets
               this.chart_range.min = this.chart_data.map( a => Math.min.apply(Math, a))
               this.chart_range.max = this.chart_data.map( a => Math.max.apply(Math, a))
             })
@@ -242,7 +254,7 @@
         change_locale: function (index) {
           this.locale = this.locales[index]
           this.$i18n.locale = this.locale;
-          localStorage.setItem("locale", this.locale);
+          localStorage.setItem('locale', this.locale);
         }
       },
       watch: {
