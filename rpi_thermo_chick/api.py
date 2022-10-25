@@ -1,143 +1,133 @@
-
-import RPi.GPIO as GPIO
-
-from fastapi import FastAPI
+from ast import Str
+from dataclasses import fields
+from typing import List
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 
 import uvicorn
 import click
 
 import datetime
 import json
-from typing import Optional
 from threading import Thread
 from time import sleep
-from random import randrange
 from os import environ, path
 from appdirs import user_config_dir
+from pydantic import BaseModel
+from importlib.metadata import version
+
+from rpi_thermo_chick import logger
+from rpi_thermo_chick.sensors import read_temperature
+from rpi_thermo_chick.relays import init_gpio, set_relay
+from rpi_thermo_chick.influxdb import init_influxdb_client, write_to_influxdb, query_mean, is_influxdb_ready
 
 host = environ.get('RPI_THERMO_CHICK_HOST', '0.0.0.0')
 port = environ.get('RPI_THERMO_CHICK_PORT', '8000')
 config_dir = user_config_dir('rpi-thermo-chick')
 module_dir = path.dirname(__file__)
 
-app = FastAPI()
+app = FastAPI( title="rpi-thermo-chick",
+    description='Thermostat for chicken 🐔🔥',
+    version=version('rpi-thermo-chick'),
+    terms_of_service="http://example.com/terms/",
+    license_info={
+        "name": "MIT",
+    },)
 vue_app = open( module_dir + '/index.html', 'r').read()
 
 def now_ts():
     return datetime.datetime.now().isoformat()
 
-def read_temperature(device: str) -> float:
-    with open(f'/sys/bus/w1/devices/{device}/w1_slave', 'r') as f:
-        lines = f.readlines()
-        while lines[0].strip()[-3:] != 'YES':
-            return None
-        equals_pos = lines[1].find('t=')
-        if equals_pos != -1:
-            temperature = lines[1][equals_pos+2:]
-            return float(temperature) / 1000.0
-    return None
-
-def get_history_index(date, interval, intervalPerDay):
-    seconds_since_midnight = (date - date.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
-    return max(0,min(int(seconds_since_midnight / interval), intervalPerDay))
-
-def rotate(arr,d):
-    result = arr[d:len(arr)]+arr[0:d]
-    return result
-
-def set_relay(relay_id, state):
-    relays[relay_id]['on'] = state
-    relays[relay_id]['ts'] = now_ts()
-    GPIO.output(relays[relay_id]['pin'], state)
-
 def apply_thermostat():
     inside_temp = thermometers[0]['temp']
     if inside_temp < target_temperature:
-        set_relay(0, GPIO.HIGH)
+        update_relay(0, 1)
     elif inside_temp >= target_temperature + 1:
-        set_relay(0, GPIO.LOW)
+        update_relay(0, 0)
 
-def update_min_max_temperature():
-    global thermometers
-    for i, _ in enumerate(thermometers):
-        thermometers[i]['min'] = min([e for e in histories[i] if e is not None])
-        thermometers[i]['max'] = max([e for e in histories[i] if e is not None])
-
-# temperature update
-def update_temperature():
+def update():
     global thermometers, histories, ts, index
-    now = datetime.datetime.now()
-    last_push = now
     while not stopped:
         ts = now_ts()
-        now = datetime.datetime.now()
-        index = get_history_index(now,interval, intervalPerDay)
+        fields = {}
         for i, t in enumerate(thermometers):
             temp = read_temperature(t['device'])
+            fields[thermometers[i].get('name',str(i))] = temp
             if temp is not None:
                 thermometers[i]['temp'] = temp
                 thermometers[i]['ts'] = now_ts()
-                histories[i][index] = temp
-        if (now - last_push).total_seconds() > 120:
-            last_push = now
-            update_min_max_temperature()
-            push_history(histories)
+        write_to_influxdb(name="temperature_sensors", fields=fields, bucket=config.influxdb.bucket, org=config.influxdb.org)
         apply_thermostat()
-        sleep(30)
+        tags = {'id': 0}
+        fields = {'on': int(relays[0]['on'])}
+        write_to_influxdb(name="relays", fields=fields, tags=tags, bucket=config.influxdb.bucket, org=config.influxdb.org)
+        sleep(config.period)
 
-def pull_history():
-    with open(config_dir + '/histories.json', 'r') as f:
-        return json.load(f)
 
-def push_history(h):
-    with open(config_dir + '/histories.json', 'w') as f:
-        json.dump(h, f)
+def update_relay(relay_id, state):
+    relays[relay_id]['on'] = state
+    relays[relay_id]['ts'] = now_ts()
+    set_relay(relays[relay_id]['pin'], state)
+
+
+class Relay(BaseModel):
+    pin: int
+
+class Thermometer(BaseModel):
+    name: str
+    device: str
+
+class Influxdb(BaseModel):
+    url: str = 'http://localhost:8086'
+    bucket: str = 'bucket'
+    org: str = 'org'
+    token: str
+
+class Config(BaseModel):
+    relays: List[Relay]
+    thermometers: List[Thermometer]
+    influxdb: Influxdb = None
+    period: int = 30
+
 
 # state
 ts = now_ts()
-init = False
+initialized = False
 stopped = False
-interval = 15*60 # 15 min in sec 
-intervalPerDay = 24*4 #number of interval (15min) per day
 target_temperature = 5
+config = None
+relays = []
+thermometers = []
 
-config = {}
-with open(config_dir + '/config.json', 'r') as f:
-    config = json.load(f)
+def init(config_file=''):
+    global config, relays, thermometers, initialized, influxdb
+    if not config_file:
+        config_file = config_dir + '/config.json'
+    config = Config.parse_file(config_file)
 
-# read mendatory relay / thermometers info
-relays = config['relays']
-thermometers = config['thermometers']
+    # read mandatory relay / thermometers info
+    relays = config.dict()['relays']
+    thermometers = config.dict()['thermometers']
 
-# init the rest
-for r in relays:
-    r.update({'on':0, 'ts': now_ts()})
-for t in thermometers:
-    t.update({'temp':0, 'ts': now_ts(), 'min': 0, 'max': 0})
+    # read optional
+    init_influxdb_client(config.influxdb)
 
-# read back historical data
-histories = []
-try:
-    histories = pull_history()
-    update_min_max_temperature()
-except:
-    histories = [[None] * intervalPerDay, [None] * intervalPerDay]
-    push_history(histories)
+    # init the rest
+    for r in relays:
+        r.update({'on':0, 'ts': now_ts()})
+    for t in thermometers:
+        t.update({'temp':0, 'ts': now_ts()})
 
-# setup GPIO
-if not init:
-    init = True
-    GPIO.setmode(GPIO.BCM)
-    for i,relay in enumerate(relays):
-        GPIO.setup(relay['pin'], GPIO.OUT)
-        GPIO.output(relay['pin'], GPIO.LOW)
+    # setup GPIO
+    if not initialized:
+        initialized = True
+        init_gpio(relays)
 
-# start temp update loop
-thread = Thread(target=update_temperature, name='temperature-loop')
-thread.setDaemon(True)
-thread.start()
+def start():
+    # start temp update loop
+    thread = Thread(target=update, name='temperature-loop')
+    thread.setDaemon(True)
+    thread.start()
 
 # server
 @app.get('/')
@@ -148,38 +138,46 @@ def read_root():
         'relays': relays, 
         'thermometers': thermometers,
         'ts': ts,
-        'index': index, 
         'target_temperature': target_temperature
         }
 
 @app.get('/app', response_class=HTMLResponse)
-def read_vue_app():
-    #return open(module_dir + '/index.html', 'r').read()
-    return vue_app
+def get_vue_app():
+    return open(module_dir + '/index.html', 'r').read()
+    #return vue_app
 
 @app.get('/relay/{relay_id}/{action}')
-def read_item(relay_id: int, action: str = 'on'):
-
+def set_relay_action(relay_id: int, action: str = 'on'):
     valid_ids = range(0, len(relays)-1)
-
     if relay_id not in valid_ids:
         return  {'ok': False, 'msg': f'relay_id must be in {valid_ids}'}
-
-    if action not in ['on','off']:
+    if action not in ['on','off', '1', '0']:
         return  {'ok': False, 'msg': 'action must be \'on\' or \'off\''}
 
-    set_relay(relay_id, GPIO.HIGH if action == 'on' else GPIO.LOW)
+    update_relay(relay_id, 1 if action in ['on', '1'] else 0)
     return {'ok': True, 'relays': relays}
 
 @app.get('/chart')
-def read_history():
+def get_chart_data(window: str = '15m', range: str = '24h'):
+    if not is_influxdb_ready:
+        raise HTTPException(status_code=404, detail="influxdb is missing")
+    bucket = config.influxdb.bucket
+    org = config.influxdb.org
+    timestamp, inside = query_mean(name='temperature_sensors', field='inside', 
+        window=window, range=range, 
+        bucket=bucket, org=org)
+    _, outside = query_mean(name='temperature_sensors', field='outside', 
+        window=window, range=range, 
+        bucket=bucket, org=org)
+    _, relay = query_mean(name='relays', field='on',
+        window=window, range=range, 
+        bucket=bucket, org=org)
     return {
         'rpi-thermo-chick': '🐔🔥',
         'ok': True,
         'ts': ts,
-        'index': index,
-        'labels': [ f'{int(i/4)}h' if i % 4 == 0 else '' for i in range(intervalPerDay,0,-1)],
-        'datasets': [rotate(histories[0], index+1), rotate(histories[1], index+1)]
+        'labels': timestamp,
+        'datasets': [inside, outside, [int(r * 100) for r in relay]]
         }
 
 @app.get('/target/{temperature}')
@@ -191,11 +189,14 @@ def set_target_temperature(temperature: int):
     
 @click.command()
 @click.option('--host', default='0.0.0.0', help='Host (default 0.0.0.0) [env RPI_THERMO_CHICK_HOST]')
-@click.option('--port', default=8000,   help='Port (default 8000) [env RPI_THERMO_CHICK_PORT]')
-def cli(host, port):
+@click.option('--port', default=8000, help='Port (default 8000) [env RPI_THERMO_CHICK_PORT]')
+@click.option('--config-file', default=f'{config_dir}/config.json', help='Config file [env RPI_THERMO_CHICK_CONFIG]')
+def cli(host, port, config_file):
     """
     rpi-thermo-chick: 🐔🔥
     """
+    init(config_file)
+    start()
     uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":

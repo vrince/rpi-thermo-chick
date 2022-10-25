@@ -10,13 +10,13 @@ module_dir = path.dirname(__file__)
 
 default_config = {
     'relays': [{ 'pin': 4},{ 'pin': 7}],
-    'thermometers': [{ 'device': '28-3c01d0751fcd'}, { 'device': '28-3c01d075db96'}]}
+    'thermometers': [{ 'device': '28-3c01d0751fcd', 'name': 'inside'}, { 'device': '28-3c01d075db96', 'name': 'outside'}]}
 
 @click.command()
 @click.argument('action')
 def cli(action):
     """
-    rpi-thermo-chick: 🐔🔥 servive
+    rpi-thermo-chick: 🐔🔥 service
 
     ACTIONS : 
     * configure (create configuration file)

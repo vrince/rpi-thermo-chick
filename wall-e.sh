@@ -9,6 +9,8 @@ run)
     ;;
 wheel)
     echo "🐍 Building wheel ..."
+    pip install wheel
+    rm -r $(pwd)/dist
     python3 setup.py bdist_wheel
     ;;
 clean)
@@ -20,6 +22,7 @@ clean)
     ;;  
 deploy)
     echo "🚀 Deploying wheel ..."
+    pip install twine
     python3 -m twine upload dist/*
     ;;
 *)

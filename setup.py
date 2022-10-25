@@ -8,7 +8,7 @@ long_description = (Path(__file__).parent / "readme.md").read_text()
 
 setup(
     name="rpi_thermo_chick",
-    version="1.0.22",
+    version="1.2.1",
     author="Thomas Vincent",
     author_email="vrince@gmail.com",
     license="MIT",
@@ -22,7 +22,8 @@ setup(
         'fastapi==0.70.0',
         'uvicorn[standard]==0.15.0',
         'click==8.0.3',
-        'appdirs==1.4.4'
+        'appdirs==1.4.4',
+        'influxdb-client==1.33.0'
     ],
     entry_points={
     'console_scripts': [
