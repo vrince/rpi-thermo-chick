@@ -23,28 +23,36 @@
 <body>
   <div id="app">
     <v-app id="inspire">
-      <v-navigation-drawer v-model="drawer" width="350" app>
-        <v-card elevation="4" class="ma-2 pa-4">
-          <v-card-title>Thermometers</v-card-title>
-          <pre class="text-caption">{{ JSON.stringify(this.thermometers, null, 2) }}</pre>
+      <v-navigation-drawer v-model="drawer" width="300" color="blue-grey lighten-5" app>
+        <v-card class="ma-1" flat outlined tile>
+          <v-card-title class="font-weight-light">Thermometers</v-card-title>
+          <v-card-text>
+            <pre class="text-caption">{{ JSON.stringify(this.thermometers, null, 2) }}</pre>
+          </v-card-text>
         </v-card>
-        <v-card elevation="4" class="ma-2 pa-4">
-          <v-card-title>Relays</v-card-title>
-          <pre class="text-caption">{{ JSON.stringify(this.relays, null, 2) }}</pre>
+        <v-card class="ma-1" flat outlined tile>
+          <v-card-title class="font-weight-light">Relays</v-card-title>
+          <v-card-text>
+            <pre class="text-caption">{{ JSON.stringify(this.relays, null, 2) }}</pre>
+          </v-card-text>
         </v-card>
-        <v-card elevation="4" class="ma-2 pa-4">
-          <v-card-title>Colors</v-card-title>
-          <v-row no-gutters>
-            <v-card v-for="n in 30" :key="n" class="pa-0 ma-0" :color="colors[n-1]" outlined tile>
-              {{n-5}}
-            </v-card>
-          </v-row>
+        <v-card class="ma-1" flat outlined tile>
+          <v-card-title class="font-weight-light">Colors</v-card-title>
+          <v-card-text>
+            <v-row no-gutters>
+              <v-card v-for="n in 30" :key="n" class="pa-0 ma-0" :color="colors[n-1]" outlined tile width="20">
+                <pre class="text-caption">{{n-5}}</pre>
+              </v-card>
+            </v-row>
+        </v-card-text>
         </v-card>
       </v-navigation-drawer>
 
       <v-app-bar app elevation=10>
         <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-        <v-toolbar-title>rpi-thermo-chick 🐔</v-toolbar-title>
+        <v-toolbar-title class="font-weight-bold">RPI</v-toolbar-title>
+        <v-toolbar-title class="font-weight-regular">THERMO</v-toolbar-title>
+        <v-toolbar-title class="font-weight-light">CHICK 🐔</v-toolbar-title>
         <v-toolbar-title v-if="relays[0].on">🔥</v-toolbar-title>
         <v-spacer></v-spacer>
         <v-btn-toggle v-model="range">
@@ -56,53 +64,55 @@
         <v-btn icon v-else @click="change_locale(0)"> fr </v-btn>
       </v-app-bar>
 
-      <v-main class="align-center">
-        <v-container class="mt-6">
-          <v-card class="mx-auto" elevation="10" max-width="450" outlined :color="thermometers[1].color">
-            <v-list-item>
-              <v-list-item-content>
-                <div class="text-overline mb-4">
-                  {{$t("outside")}}
-                </div>
-                <v-card class="mx-auto" elevation="10" max-width="300" outlined :color="thermometers[0].color">
-                  <v-list-item>
-                    <v-list-item-content>
-                      <div class="text-overline mb-4">
-                        {{$t("inside")}}
-                      </div>
-                      <v-list-item-title class="text-h2 mb-1">
-                        {{thermometers[0].temp.toFixed(0)}}°c
-                      </v-list-item-title>
-                    </v-list-item-content>
-                    <v-badge :value="relays[0].on" overlap offset-x="50" offset-y="50" color="white">
-                      <v-list-item-avatar size="100" color="white">
-                        <pre class="text-h3 mb-2">🐔</pre>
-                      </v-list-item-avatar>
-                      <template v-slot:badge>
-                        <pre class="text-h3 pa-0">🔥</pre>
-                      </template>
-                    </v-badge>
-                  </v-list-item>
-                  <v-card-actions class="justify-end ma-4">
-                    <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=12
-                      step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
-                  </v-card-actions>
-                  <v-card-actions class="justify-end">
-                    <span v-if="display_graph" small label outlined color="black" class="text-caption float-right">
-                      {{chart_range.min[0].toFixed(0)}} | {{chart_range.max[0].toFixed(0)}}°c</span>
-                  </v-card-actions>
-                </v-card>
-                <v-list-item-title class="mt-4">
-                  <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
-                  <span v-if="display_graph"  small label outlined color="black" class="text-caption float-right">
-                    {{chart_range.min[1].toFixed(0)}} | {{chart_range.max[1].toFixed(0)}}°c</span>
-                </v-list-item-title>
-              </v-list-item-content>
-            </v-list-item>
-        </v-container>
-        <highcharts v-if="display_graph" class="mt-4" :options="options" ref="highcharts"></highcharts>
+      <v-main>
+          <v-card class="ma-4 d-flex align-content-start flex-wrap" flat>
+            <v-card class="mx-auto" elevation="6" max-width="450" outlined :color="thermometers[1].color">
+              <v-list-item>
+                <v-list-item-content>
+                  <div class="text-overline mb-4">
+                    {{$t("outside")}}
+                  </div>
+                  <v-card class="mx-auto" elevation="10" max-width="300" outlined :color="thermometers[0].color">
+                    <v-list-item>
+                      <v-list-item-content>
+                        <div class="text-overline mb-4">
+                          {{$t("inside")}}
+                        </div>
+                        <v-list-item-title class="text-h2 mb-1">
+                          {{thermometers[0].temp.toFixed(0)}}°c
+                        </v-list-item-title>
+                      </v-list-item-content>
+                      <v-badge :value="relays[0].on" overlap offset-x="50" offset-y="50" color="white">
+                        <v-list-item-avatar size="100" color="white">
+                          <pre class="text-h3 mb-2">🐔</pre>
+                        </v-list-item-avatar>
+                        <template v-slot:badge>
+                          <pre class="text-h3 pa-0">🔥</pre>
+                        </template>
+                      </v-badge>
+                    </v-list-item>
+                    <v-card-actions class="justify-end ma-4">
+                      <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=12
+                        step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
+                    </v-card-actions>
+                    <v-card-actions class="justify-end">
+                      <span v-if="display_graph" small label outlined color="black" class="text-caption float-right">
+                        {{chart_range.min[0].toFixed(0)}} | {{chart_range.max[0].toFixed(0)}}°c</span>
+                    </v-card-actions>
+                  </v-card>
+                  <v-list-item-title class="mt-4">
+                    <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
+                    <span v-if="display_graph"  small label outlined color="black" class="text-caption float-right">
+                      {{chart_range.min[1].toFixed(0)}} | {{chart_range.max[1].toFixed(0)}}°c</span>
+                  </v-list-item-title>
+                </v-list-item-content>
+              </v-list-item>
+            </v-card>
+            <v-col class="flex-grow-1">
+              <highcharts v-if="display_graph" class="ma-4" :options="options" ref="highcharts"></highcharts>
+            </v-col>
+          </v-card>
       </v-main>
-     
     </v-app>
   </div>
 
@@ -137,7 +147,7 @@
       }),
       i18n: i18n,
       data: () => ({
-        drawer: null,
+        drawer: false,
         locale: localStorage.getItem('locale') || 'fr',
         locales: ['fr', 'en'],
         colors: gradient.getArray(),
@@ -168,10 +178,8 @@
             xAxis: {
               type: 'datetime',
               categories: this.chart_labels,
-              labels: {
-                formatter: function() {
-                  return Highcharts.dateFormat('%Hh%M', this.value);
-                }
+              labels:{
+                format: '{value:%H:%M}',
               }
             },
             time: { useUTC: false },
@@ -274,7 +282,6 @@
         setInterval(() => { this.fetch_temperature() }, 10000)
         setInterval(() => { this.fetch_chart() }, 30000)
         var chart = this.$refs.highcharts.chart
-        chart.credits.update({ style: { color: '#' + (Math.random() * 0xffffff | 0).toString(16) }})
       }
     })
   </script>
@@ -285,16 +292,6 @@
       padding: 6px 6px;
       border-radius: 50px;
       background-color: transparent
-    }
-
-    .stack-sheet {
-      position: relative;
-    }
-
-    .stacked {
-      position: absolute;
-      top: 0;
-      left: 0;
     }
   </style>
 </body>
