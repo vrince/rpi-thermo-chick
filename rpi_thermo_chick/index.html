@@ -15,9 +15,11 @@
 <script>highcharts = Highcharts</script>
 <script src="https://cdn.jsdelivr.net/npm/highcharts-vue@1.4.0/dist/highcharts-vue.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tinycolor/1.4.2/tinycolor.min.js"></script>
 <script>var module = {};</script>
 <script src="https://cdn.jsdelivr.net/npm/javascript-color-gradient@1.3.2/src/index.min.js"></script>
 <script src="https://unpkg.com/vue-i18n@8"></script>
+
 
 
 <body>
@@ -117,9 +119,17 @@
   </div>
 
   <script>
+    const colors = ['#1a66ff', '#80ffbf', '#ffe680', '#ff9933', '#ff3333']
+    const ext_colors = colors.map(c => tinycolor(c).desaturate(41).toString())
+
     const gradient = new Gradient();
-    gradient.setGradient('#1a66ff', '#80ffbf', '#ffe680', '#ff9933', '#ff3333');
+    gradient.setGradient(...colors);
     gradient.setMidpoint(30);
+
+    const ext_gradient = new Gradient();
+    ext_gradient.setGradient(...ext_colors);
+    ext_gradient.setMidpoint(30);
+
     const messages = {
       en: {
         inside: 'Inside',
@@ -151,6 +161,7 @@
         locale: localStorage.getItem('locale') || 'fr',
         locales: ['fr', 'en'],
         colors: gradient.getArray(),
+        ext_colors: ext_gradient.getArray(),
         target: 5,
         thermometers: [{ temp: 0, color: 'primary' }, { temp: 0, color: 'primary' }],
         relays: [{}, {}],
@@ -161,7 +172,7 @@
         range_query: [
           'window=15m&range=1d',
           'window=4h&range=1w',
-          'window=12h&range=1m'
+          'window=12h&range=4w'
         ]
       }),
       computed: {
@@ -222,10 +233,11 @@
         }
       },
       methods: {
-        compute_color: function (temp) {
+        compute_color: function (temp, ext=false) {
+          const colors = ext ? this.ext_colors : this.colors
           let index = temp + 5;
-          index = Math.trunc(Math.max(0, Math.min(index, this.colors.length - 1)))
-          return this.colors[index]
+          index = Math.trunc(Math.max(0, Math.min(index, colors.length - 1)))
+          return colors[index]
         },
         toggle_relay: function () {
           if (this.relays[0].on)
@@ -242,7 +254,7 @@
               this.thermometers = data.thermometers
               this.relays = data.relays
               this.thermometers[0].color = this.compute_color(this.thermometers[0].temp)
-              this.thermometers[1].color = this.compute_color(this.thermometers[1].temp)
+              this.thermometers[1].color = this.compute_color(this.thermometers[1].temp, true)
               this.target = data.target_temperature
             })
         },

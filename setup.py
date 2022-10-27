@@ -8,7 +8,7 @@ long_description = (Path(__file__).parent / "readme.md").read_text()
 
 setup(
     name="rpi_thermo_chick",
-    version="1.2.1",
+    version="1.2.4",
     author="Thomas Vincent",
     author_email="vrince@gmail.com",
     license="MIT",
