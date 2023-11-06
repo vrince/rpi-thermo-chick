@@ -1,6 +1,3 @@
-from ast import Str
-from dataclasses import fields
-from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
@@ -8,18 +5,16 @@ import uvicorn
 import click
 
 import datetime
-import json
 from threading import Thread
 from time import sleep
 from os import environ, path
 from appdirs import user_config_dir
-from pydantic import BaseModel
 from importlib.metadata import version
 
-from rpi_thermo_chick import logger
-from rpi_thermo_chick.sensors import read_temperature
+from rpi_thermo_chick.config import Config
+from rpi_thermo_chick.sensors import read_temperature, is_sensor_ready
 from rpi_thermo_chick.relays import init_gpio, set_relay
-from rpi_thermo_chick.influxdb import init_influxdb_client, write_to_influxdb, query_mean, is_influxdb_ready
+from rpi_thermo_chick.influxdb import init_influxdb_client, write_to_influxdb, query_mean
 
 host = environ.get('RPI_THERMO_CHICK_HOST', '0.0.0.0')
 port = environ.get('RPI_THERMO_CHICK_PORT', '8000')
@@ -29,7 +24,6 @@ module_dir = path.dirname(__file__)
 app = FastAPI( title="rpi-thermo-chick",
     description='Thermostat for chicken 🐔🔥',
     version=version('rpi-thermo-chick'),
-    terms_of_service="http://example.com/terms/",
     license_info={
         "name": "MIT",
     },)
@@ -51,16 +45,20 @@ def update():
         ts = now_ts()
         fields = {}
         for i, t in enumerate(thermometers):
-            temp = read_temperature(t['device'])
+            device = t['device']
+            thermometers[i]['ready'] = is_sensor_ready(device)
+            temp = read_temperature(device)
             fields[thermometers[i].get('name',str(i))] = temp
             if temp is not None:
                 thermometers[i]['temp'] = temp
                 thermometers[i]['ts'] = now_ts()
-        write_to_influxdb(name="temperature_sensors", fields=fields, bucket=config.influxdb.bucket, org=config.influxdb.org)
+        if config.influxdb.enabled:
+            write_to_influxdb(name="temperature_sensors", fields=fields, bucket=config.influxdb.bucket, org=config.influxdb.org)
         apply_thermostat()
         tags = {'id': 0}
         fields = {'on': int(relays[0]['on'])}
-        write_to_influxdb(name="relays", fields=fields, tags=tags, bucket=config.influxdb.bucket, org=config.influxdb.org)
+        if config.influxdb.enabled:
+            write_to_influxdb(name="relays", fields=fields, tags=tags, bucket=config.influxdb.bucket, org=config.influxdb.org)
         sleep(config.period)
 
 
@@ -68,26 +66,6 @@ def update_relay(relay_id, state):
     relays[relay_id]['on'] = state
     relays[relay_id]['ts'] = now_ts()
     set_relay(relays[relay_id]['pin'], state)
-
-
-class Relay(BaseModel):
-    pin: int
-
-class Thermometer(BaseModel):
-    name: str
-    device: str
-
-class Influxdb(BaseModel):
-    url: str = 'http://localhost:8086'
-    bucket: str = 'bucket'
-    org: str = 'org'
-    token: str
-
-class Config(BaseModel):
-    relays: List[Relay]
-    thermometers: List[Thermometer]
-    influxdb: Influxdb = None
-    period: int = 30
 
 
 # state
@@ -110,7 +88,8 @@ def init(config_file=''):
     thermometers = config.dict()['thermometers']
 
     # read optional
-    init_influxdb_client(config.influxdb)
+    if config.influxdb.enabled:
+        init_influxdb_client(config.influxdb)
 
     # init the rest
     for r in relays:
@@ -138,7 +117,8 @@ def read_root():
         'relays': relays, 
         'thermometers': thermometers,
         'ts': ts,
-        'target_temperature': target_temperature
+        'target_temperature': target_temperature,
+        'version': version('rpi-thermo-chick')
         }
 
 @app.get('/app', response_class=HTMLResponse)
@@ -148,7 +128,7 @@ def get_vue_app():
 
 @app.get('/relay/{relay_id}/{action}')
 def set_relay_action(relay_id: int, action: str = 'on'):
-    valid_ids = range(0, len(relays)-1)
+    valid_ids = range(0, len(relays))
     if relay_id not in valid_ids:
         return  {'ok': False, 'msg': f'relay_id must be in {valid_ids}'}
     if action not in ['on','off', '1', '0']:
@@ -159,7 +139,7 @@ def set_relay_action(relay_id: int, action: str = 'on'):
 
 @app.get('/chart')
 def get_chart_data(window: str = '15m', range: str = '24h'):
-    if not is_influxdb_ready:
+    if not config.influxdb.enabled:
         raise HTTPException(status_code=404, detail="influxdb is missing")
     bucket = config.influxdb.bucket
     org = config.influxdb.org

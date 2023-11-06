@@ -9,8 +9,6 @@ from rpi_thermo_chick import logger
 
 client = None
 
-def is_influxdb_ready():
-    return client is not None
 
 def init_influxdb_client(config):
     global client
@@ -18,7 +16,7 @@ def init_influxdb_client(config):
         client = InfluxDBClient(url=config.url, 
             token=config.token, 
             org=config.org)
-        logger.warning(f'influxdb client created')
+        logger.info(f'influxdb client created')
     except Exception as e:
         logger.info(f'cannot create influxdb client, exception({e})')
 
@@ -31,6 +29,7 @@ def write_to_influxdb(name='measurement', tags={}, fields={}, bucket='bucket', o
         write_api.write(bucket, org, f'{name}{tags_flat} {fields_flat}')
     except Exception as e:
         logger.warning(f'cannot write influxdb client, exception({e})')
+
 
 def query_mean(name='measurement', field='inside', range='24h', window='15m', bucket='bucket', org='org', function='mean'):
     try:

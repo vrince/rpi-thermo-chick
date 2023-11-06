@@ -19,15 +19,16 @@ setup(
     long_description_content_type='text/markdown',
     package_data={'rpi_thermo_chick': ['index.html', 'rpi-thermo-chick.service']},
     install_requires=[
-        'fastapi==0.70.0',
-        'uvicorn[standard]==0.15.0',
-        'click==8.0.3',
+        'fastapi==0.104.1',
+        'uvicorn[standard]==0.23.2',
+        'click==8.1.7',
         'appdirs==1.4.4',
-        'influxdb-client==1.33.0'
+        'influxdb-client==1.38.0'
     ],
     entry_points={
     'console_scripts': [
         'rpi-thermo-chick = rpi_thermo_chick.api:cli',
+        'rpi-thermo-chick.config = rpi_thermo_chick.config:cli',
         'rpi-thermo-chick.service = rpi_thermo_chick.service:cli'
     ]
 }

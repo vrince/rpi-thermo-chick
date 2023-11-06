@@ -7,35 +7,38 @@
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
 </head>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
-<script>highcharts = Highcharts</script>
-<script src="https://cdn.jsdelivr.net/npm/highcharts-vue@1.4.0/dist/highcharts-vue.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script type="text/javascript"
+  src="https://cdn.jsdelivr.net/npm/highcharts-vue@1.4.2/dist/highcharts-vue.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tinycolor/1.4.2/tinycolor.min.js"></script>
 <script>var module = {};</script>
 <script src="https://cdn.jsdelivr.net/npm/javascript-color-gradient@1.3.2/src/index.min.js"></script>
+
 <script src="https://unpkg.com/vue-i18n@8"></script>
 
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
 
 <body>
   <div id="app">
     <v-app id="inspire">
-      <v-navigation-drawer v-model="drawer" width="300" color="blue-grey lighten-5" app>
+      <v-navigation-drawer v-model="drawer" width="400" color="blue-grey lighten-5" app>
         <v-card class="ma-1" flat outlined tile>
           <v-card-title class="font-weight-light">Thermometers</v-card-title>
           <v-card-text>
-            <pre class="text-caption">{{ JSON.stringify(this.thermometers, null, 2) }}</pre>
+            <pre><code>{{ JSON.stringify(this.thermometers, null, 2) }}</code></pre>
           </v-card-text>
         </v-card>
         <v-card class="ma-1" flat outlined tile>
           <v-card-title class="font-weight-light">Relays</v-card-title>
           <v-card-text>
-            <pre class="text-caption">{{ JSON.stringify(this.relays, null, 2) }}</pre>
+            <pre><code>{{ JSON.stringify(this.relays, null, 2) }}</code></pre>
           </v-card-text>
         </v-card>
         <v-card class="ma-1" flat outlined tile>
@@ -46,7 +49,13 @@
                 <pre class="text-caption">{{n-5}}</pre>
               </v-card>
             </v-row>
-        </v-card-text>
+          </v-card-text>
+        </v-card>
+        <v-card class="ma-1" flat outlined tile>
+          <v-card-text>
+            <pre class="text-caption">version</pre>
+            <pre class="font-weight-bold">{{this.version}}</pre>
+          </v-card-text>
         </v-card>
       </v-navigation-drawer>
 
@@ -57,7 +66,7 @@
         <v-toolbar-title class="font-weight-light">CHICK 🐔</v-toolbar-title>
         <v-toolbar-title v-if="relays[0].on">🔥</v-toolbar-title>
         <v-spacer></v-spacer>
-        <v-btn-toggle v-model="range">
+        <v-btn-toggle dense v-model="range">
           <v-btn>{{$t("day")}}</v-btn>
           <v-btn>{{$t("week")}}</v-btn>
           <v-btn>{{$t("month")}}</v-btn>
@@ -65,55 +74,56 @@
         <v-btn icon v-if="locale != locales[1]" @click="change_locale(1)" class="ml-4"> en </v-btn>
         <v-btn icon v-else @click="change_locale(0)"> fr </v-btn>
       </v-app-bar>
-
       <v-main>
-          <v-card class="ma-4 d-flex align-content-start flex-wrap" flat>
-            <v-card class="mx-auto" elevation="6" max-width="450" outlined :color="thermometers[1].color">
-              <v-list-item>
-                <v-list-item-content>
-                  <div class="text-overline mb-4">
-                    {{$t("outside")}}
-                  </div>
-                  <v-card class="mx-auto" elevation="10" max-width="300" outlined :color="thermometers[0].color">
-                    <v-list-item>
-                      <v-list-item-content>
-                        <div class="text-overline mb-4">
-                          {{$t("inside")}}
-                        </div>
-                        <v-list-item-title class="text-h2 mb-1">
-                          {{thermometers[0].temp.toFixed(0)}}°c
-                        </v-list-item-title>
-                      </v-list-item-content>
-                      <v-badge :value="relays[0].on" overlap offset-x="50" offset-y="50" color="white">
-                        <v-list-item-avatar size="100" color="white">
-                          <pre class="text-h3 mb-2">🐔</pre>
-                        </v-list-item-avatar>
-                        <template v-slot:badge>
-                          <pre class="text-h3 pa-0">🔥</pre>
-                        </template>
-                      </v-badge>
-                    </v-list-item>
-                    <v-card-actions class="justify-end ma-4">
-                      <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=12
-                        step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
-                    </v-card-actions>
-                    <v-card-actions class="justify-end">
-                      <span v-if="display_graph" small label outlined color="black" class="text-caption float-right">
-                        {{chart_range.min[0].toFixed(0)}} | {{chart_range.max[0].toFixed(0)}}°c</span>
-                    </v-card-actions>
-                  </v-card>
-                  <v-list-item-title class="mt-4">
-                    <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
-                    <span v-if="display_graph"  small label outlined color="black" class="text-caption float-right">
-                      {{chart_range.min[1].toFixed(0)}} | {{chart_range.max[1].toFixed(0)}}°c</span>
-                  </v-list-item-title>
-                </v-list-item-content>
-              </v-list-item>
-            </v-card>
-            <v-col class="flex-grow-1">
-              <highcharts v-if="display_graph" class="ma-4" :options="options" ref="highcharts"></highcharts>
-            </v-col>
+        <v-alert v-if="sensors_ready" class="ma-6" border="left" type="error" text dense
+          class="ma-2">{{$t("sensor_not_ready")}}</v-alert>
+        <v-card class="ma-4 d-flex align-content-start flex-wrap" flat>
+          <v-card class="mx-auto" elevation="6" max-width="450" outlined :color="thermometers[1].color">
+            <v-list-item>
+              <v-list-item-content>
+                <div class="text-overline mb-4">
+                  {{$t("outside")}}
+                </div>
+                <v-card class="mx-auto" elevation="10" max-width="300" outlined :color="thermometers[0].color">
+                  <v-list-item>
+                    <v-list-item-content>
+                      <div class="text-overline mb-4">
+                        {{$t("inside")}}
+                      </div>
+                      <v-list-item-title class="text-h2 mb-1">
+                        {{thermometers[0].temp.toFixed(0)}}°c
+                      </v-list-item-title>
+                    </v-list-item-content>
+                    <v-badge :value="relays[0].on" overlap offset-x="50" offset-y="50" color="white">
+                      <v-list-item-avatar size="100" color="white">
+                        <pre class="text-h3 mb-2">🐔</pre>
+                      </v-list-item-avatar>
+                      <template v-slot:badge>
+                        <pre class="text-h3 pa-0">🔥</pre>
+                      </template>
+                    </v-badge>
+                  </v-list-item>
+                  <v-card-actions class="justify-end ma-4">
+                    <v-slider v-model="target" :label="targetLabel" color="black" track-color="white" min=4 max=12
+                      step="1" thumb-label ticks tick-size=10 thumb-size=41 dense></v-slider>
+                  </v-card-actions>
+                  <v-card-actions class="justify-end">
+                    <span v-if="display_graph" small label outlined color="black" class="text-caption float-right">
+                      {{chart_range.min[0].toFixed(0)}} | {{chart_range.max[0].toFixed(0)}}°c</span>
+                  </v-card-actions>
+                </v-card>
+                <v-list-item-title class="mt-4">
+                  <span class="text-h4 pa-0">{{thermometers[1].temp.toFixed(0)}}°c</span>
+                  <span v-if="display_graph" small label outlined color="black" class="text-caption float-right">
+                    {{chart_range.min[1].toFixed(0)}} | {{chart_range.max[1].toFixed(0)}}°c</span>
+                </v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
           </v-card>
+          <v-col class="flex-grow-1">
+            <highcharts v-if="display_graph" class="ma-4" :options="options" ref="highcharts"></highcharts>
+          </v-col>
+        </v-card>
       </v-main>
     </v-app>
   </div>
@@ -137,7 +147,8 @@
         day: '1 day',
         week: '1 week',
         month: '1 month',
-        relay: 'Relay'
+        relay: 'Relay',
+        sensor_not_ready: 'At least one of the sensor is not ready (temperatures you see are ramdom)'
       },
       fr: {
         inside: 'Interieur',
@@ -145,7 +156,8 @@
         day: '1 jour',
         week: '1 semaine',
         month: '1 mois',
-        relay: 'Relais'
+        relay: 'Relais',
+        sensor_not_ready: 'Au moins un capteur de temperature n est pas pret (les valeures sont aleatoires)'
       },
     };
     Vue.use(HighchartsVue.default)
@@ -158,16 +170,19 @@
       i18n: i18n,
       data: () => ({
         drawer: false,
+        version: '',
         locale: localStorage.getItem('locale') || 'fr',
         locales: ['fr', 'en'],
         colors: gradient.getArray(),
         ext_colors: ext_gradient.getArray(),
         target: 5,
-        thermometers: [{ temp: 0, color: 'primary' }, { temp: 0, color: 'primary' }],
+        thermometers: [
+          { temp: 0, color: 'primary', ready: true },
+          { temp: 0, color: 'primary', ready: true }],
         relays: [{}, {}],
         chart_labels: [],
         chart_data: [],
-        chart_range: { min: [0,0], max: [0,0]},
+        chart_range: { min: [0, 0], max: [0, 0] },
         range: 0,
         range_query: [
           'window=15m&range=1d',
@@ -179,61 +194,86 @@
         targetLabel: function () {
           return `${this.target}°c`
         },
-        display_graph() {
+        display_graph: function () {
           return this.range != undefined
         },
-        options: function() {
+        options: function () {
           return {
-            chart: { type : 'spline' },
-            title: { text:'' },
+            chart: { type: 'spline' },
+            title: { text: '' },
             xAxis: {
               type: 'datetime',
               categories: this.chart_labels,
-              labels:{
+              labels: {
                 format: '{value:%H:%M}',
               }
             },
             time: { useUTC: false },
-            yAxis: [{ title: { text: '' } },{ title: { text: '' }, min:0 , max: 100, opposite: true}],
+            yAxis: [
+              {
+                title: { text: '' },
+                labels: {
+                  formatter: function () {
+                    return this.value + '°C';
+                  }
+                }
+              },
+              { 
+                title: { text: '' },
+                labels: {
+                  formatter: function () {
+                    return this.value + '%';
+                  }
+                },
+                min: 0,
+                max: 100,
+                opposite: true }],
             legend: {
               layout: 'vertical',
               align: 'left',
               verticalAlign: 'top',
               borderWidth: 0,
               x: 25,
-              floating: true,
+              floating: false,
             },
             series: [
               {
                 name: this.$t('outside'),
                 data: this.chart_data[1],
                 color: this.thermometers[1].color,
-                marker: {enabled: false},
-                tooltip: { valueSuffix: '°C', valueDecimals: 1},
+                lineWidth: 2,
+                marker: { enabled: false },
+                tooltip: { valueSuffix: '°C', valueDecimals: 1 },
+
               },
               {
                 name: this.$t('inside'),
                 data: this.chart_data[0],
                 color: this.thermometers[0].color,
-                marker: {enabled: false},
+                marker: { enabled: false },
                 lineWidth: 3,
-                tooltip: { valueSuffix: '°C', valueDecimals: 1},
+                tooltip: { valueSuffix: '°C', valueDecimals: 1 },
               },
               {
                 name: this.$t('relay'),
-                data: this.chart_data[2],
-                color: 'black',
-                marker: {enabled: false},
-                dashStyle: 'Dot',
+                data: this.chart_data[2], 
+                type: 'areaspline',
+                color: '#00000044',
+                marker: { enabled: false },
+                dashStyle: 'Dash',
+                lineWidth: 1,
                 yAxis: 1,
-                tooltip: { valueSuffix: '%', valueDecimals: 0},
+                tooltip: { valueSuffix: '%', valueDecimals: 0 },
               }
             ]
           }
+        },
+        sensors_ready: function () {
+          return !this.thermometers.every(v => v.ready === true)
         }
       },
       methods: {
-        compute_color: function (temp, ext=false) {
+        compute_color: function (temp, ext = false) {
           const colors = ext ? this.ext_colors : this.colors
           let index = temp + 5;
           index = Math.trunc(Math.max(0, Math.min(index, colors.length - 1)))
@@ -256,19 +296,20 @@
               this.thermometers[0].color = this.compute_color(this.thermometers[0].temp)
               this.thermometers[1].color = this.compute_color(this.thermometers[1].temp, true)
               this.target = data.target_temperature
+              this.version = data.version
             })
         },
         fetch_chart: function () {
-          if(this.range == undefined) {
+          if (this.range == undefined) {
             return
           }
           fetch('/chart?' + this.range_query[this.range])
             .then(response => response.json())
             .then(data => {
-              this.chart_labels = data.labels.map( e => new Date(e).getTime())
+              this.chart_labels = data.labels.map(e => new Date(e).getTime())
               this.chart_data = data.datasets
-              this.chart_range.min = this.chart_data.map( a => Math.min.apply(Math, a))
-              this.chart_range.max = this.chart_data.map( a => Math.max.apply(Math, a))
+              this.chart_range.min = this.chart_data.map(a => Math.min.apply(Math, a))
+              this.chart_range.max = this.chart_data.map(a => Math.max.apply(Math, a))
             })
         },
         change_locale: function (index) {
@@ -291,9 +332,14 @@
       mounted() {
         this.fetch_temperature()
         this.fetch_chart()
-        setInterval(() => { this.fetch_temperature() }, 10000)
-        setInterval(() => { this.fetch_chart() }, 30000)
+        setInterval(() => { this.fetch_temperature() }, 15000)
+        setInterval(() => { this.fetch_chart() }, 60000)
         var chart = this.$refs.highcharts.chart
+      },
+      updated: function () {
+        this.$nextTick(function () {
+          hljs.highlightAll()
+        })
       }
     })
   </script>

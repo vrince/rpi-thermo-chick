@@ -25,6 +25,13 @@ deploy)
     pip install twine
     python3 -m twine upload dist/*
     ;;
+bootstrap)
+    echo "🚀 Bootstrap dev ..."
+    python3 -m venv _env
+    source _env/bin/activate
+    pip install wheel
+    pip install -e .
+    ;;
 *)
   echo "Nothing to do ..."
   ;;
